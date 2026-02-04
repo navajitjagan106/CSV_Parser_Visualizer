@@ -3,7 +3,7 @@ import { RootState } from '../store/store'
 import { selectColumn} from '../store/layoutSlice'
 import { useDispatch, useSelector } from 'react-redux';
 
-export default function VisualisationPanel ()  {
+export default function VisualizationPanel ()  {
       const columns = useSelector((s: RootState) => s.data.columns);
       const selected= useSelector((s:RootState)=>s.layout.columns);
 
