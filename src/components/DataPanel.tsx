@@ -1,34 +1,40 @@
 import React from 'react'
 import { RootState } from '../store/store'
-import { selectColumn} from '../store/layoutSlice'
+import { selectColumn } from '../store/layoutSlice'
 import { useDispatch, useSelector } from 'react-redux';
 
-export default function DataPanel ()  {
-      const columns = useSelector((s: RootState) => s.data.columns);
+export default function DataPanel() {
+    const columns = useSelector((s: RootState) => s.data.columns);
 
-      const selected= useSelector((s:RootState)=>s.layout.columns);
+    return (
 
-        const dispatch = useDispatch();
+        <div>
+            <p style={{ fontSize: 16, color: "#666" }}> Available Fields</p>
+            <div style={{ marginTop: 10 }}>
+                {columns.map((col) => (
+                    <div
+                        key={col}
+                        draggable
+                        onDragStart={(e) => {
+                            e.dataTransfer.setData("text/plain", col);
+                        }}
+                        style={{
+                            padding: "6px 8px",
+                            border: "1px solid #ccc",
+                            borderRadius: 4,
+                            marginBottom: 6,
+                            background: "white",
+                            cursor: "grab",
+                            fontSize: 14
+                        }}
+                    >
+                        {col}
+                    </div>
+                ))}
 
-
-
-  return (
-
-    <div>
-        <h1>Columns</h1>
-
-        {columns.map(col=>(
-            <label key={col} style={{display:'block'}}>
-            <input
-            type="checkbox"
-            checked={selected.includes(col)}
-            onChange={()=>dispatch(selectColumn(col))}
-            />
-            {col}
-            </label>
-        ))}
-    </div>
-  )
+            </div>
+        </div>
+    )
 }
 
 //export default DataPanel
