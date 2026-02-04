@@ -4,7 +4,7 @@ import { setData, clearData } from "./store/dataSlice";
 import DataPanel from "./components/DataPanel";
 import { RootState } from "./store/store";
 import MainTable from "./components/MainTable";
-import VisualisationPanel from "./components/VisualisationPAnel";
+import VisualisationPanel from "./components/VisualizationPanel";
 import { useRef } from "react";
 
 
