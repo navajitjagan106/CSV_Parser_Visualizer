@@ -5,7 +5,6 @@ import { useDispatch, useSelector } from 'react-redux';
 
 export default function VisualisationPanel ()  {
       const columns = useSelector((s: RootState) => s.data.columns);
-
       const selected= useSelector((s:RootState)=>s.layout.columns);
 
         const dispatch = useDispatch();

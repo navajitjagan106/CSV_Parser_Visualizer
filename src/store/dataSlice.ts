@@ -1,19 +1,22 @@
 import { configureStore, createSlice, PayloadAction } from "@reduxjs/toolkit";
 
-const dataSlice=createSlice({
-    name:"data",
-    initialState:{
-        rows:[] as Record<string,any>[],
-        columns:[] as string[]
+const dataSlice = createSlice({
+    name: "data",
+    initialState: {
+        rows: [] as Record<string, any>[],
+        columns: [] as string[]
     },
-    reducers:{
-        setData(state,action:PayloadAction<Record<string,any>[]>){
-            state.rows=action.payload;
-            state.columns=Object.keys(action.payload[0]||{});
-
+    reducers: {
+        setData(state, action: PayloadAction<Record<string, any>[]>) {
+            state.rows = action.payload;
+            state.columns = Object.keys(action.payload[0] || {});
+        },
+        clearData(state) {
+            state.rows = [];
+            state.columns = [];
         }
     }
 });
- 
-export const {setData} = dataSlice.actions;
+
+export const { setData, clearData } = dataSlice.actions;
 export default dataSlice.reducer;

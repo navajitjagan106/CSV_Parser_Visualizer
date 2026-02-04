@@ -1,7 +1,6 @@
 import React from 'react'
 import { RootState } from '../store/store'
-import { selectColumn } from '../store/layoutSlice'
-import { useDispatch, useSelector } from 'react-redux';
+import {  useSelector } from 'react-redux';
 
 export default function DataPanel() {
     const columns = useSelector((s: RootState) => s.data.columns);
