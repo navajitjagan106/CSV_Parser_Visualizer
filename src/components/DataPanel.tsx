@@ -8,32 +8,17 @@ export default function DataPanel() {
     return (
 
         <div>
-            <p style={{ fontSize: 16, color: "#666" }}> Available Fields</p>
-            <div style={{ marginTop: 10 }}>
+            <input placeholder="Search field..." className="w-full mb-3 px-2 py-1 border rounded text-sm"/>
                 {columns.map((col) => (
-                    <div
-                        key={col}
-                        draggable
-                        onDragStart={(e) => {
-                            e.dataTransfer.setData("text/plain", col);
-                        }}
-                        style={{
-                            padding: "6px 8px",
-                            border: "1px solid #ccc",
-                            borderRadius: 4,
-                            marginBottom: 6,
-                            background: "white",
-                            cursor: "grab",
-                            fontSize: 14
-                        }}
+                    <div key={col} draggable 
+                    onDragStart={(e) => {e.dataTransfer.setData("text/plain", col);}}
+                    className='flex items-center gap-2 px-2  py-1 mb-1 text-sm cursor-pointer hover:bg-gray-200 rounded'
                     >
-                        {col}
+                     📄 {col}
                     </div>
                 ))}
 
             </div>
-        </div>
+        
     )
 }
-
-//export default DataPanel
