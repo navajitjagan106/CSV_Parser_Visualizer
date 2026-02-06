@@ -31,6 +31,8 @@ function App() {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
+      // worker: false,        
+  dynamicTyping: true,
       complete: (result) => {
         //console.log("Parsed Data: ",result.data)
         // setData(result.data as any[]);
@@ -95,7 +97,7 @@ function App() {
       <div className="flex flex-1 w-full overflow-hidden">
 
         {/* Report Area */}
-        <main className="flex-1 min-w-0 bg-white m-2 rounded shadow p-3 overflow-auto">
+        <main className="flex-1 min-w-0 bg-white m-2 rounded shadow p-3 overflow-hidden">
 
           <p className="text-sm font-medium mb-2 text-gray-600">
             Report View

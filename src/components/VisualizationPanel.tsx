@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Root } from 'react-dom/client';
 
 export default function VisualizationPanel() {
-  const columns = useSelector((s: RootState) => s.data.columns);
+  //const columns = useSelector((s: RootState) => s.data.columns);
   const selected = useSelector((s: RootState) => s.layout.columns);
   const version=useSelector((s:RootState)=> s.layout.version)
 
@@ -42,12 +42,12 @@ export default function VisualizationPanel() {
         </p>
 
         <div style={{ marginTop: 10 }}>
-          {columns.map(col => (
-            <label key={'${version}-${col}'}
+          {selected.map(col => (
+            <label key={`${version}-${col}`}
               className='flex items-center gap-2 text-sm mb-1'>
               <input
                 type="checkbox"
-                checked={selected.includes(col)}
+                checked={true}
                 onChange={() => dispatch(selectColumn(col))}
               />
               {col}
