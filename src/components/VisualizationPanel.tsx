@@ -1,31 +1,96 @@
-import React from 'react'
+import React, { useMemo, useState } from 'react'
 import { RootState } from '../store/store'
 import { selectColumn } from '../store/layoutSlice'
 import { useDispatch, useSelector } from 'react-redux';
 import { Root } from 'react-dom/client';
+import ChartPanel from "./ChartPanel";
+import { groupData } from "../utils/groupData";
+import { setChart, clearChart } from "../store/layoutSlice";
 
 export default function VisualizationPanel() {
-  //const columns = useSelector((s: RootState) => s.data.columns);
-  const selected = useSelector((s: RootState) => s.layout.columns);
-  const version=useSelector((s:RootState)=> s.layout.version)
-
   const dispatch = useDispatch();
+  const selected = useSelector((s: RootState) => s.layout.columns);
+  const version = useSelector((s: RootState) => s.layout.version)
+  const data = useSelector((s: RootState) => s.data.rows);
+  const chart = useSelector((s: RootState) => s.layout.chart);
+
+
+
+  const chartData = useMemo(() => {
+    if (!chart.x || !chart.y) return [];
+
+    return groupData(data, chart.x, chart.y);
+
+  }, [data, chart.x, chart.y]);
+
+
 
   return (
     <div className='space-y-3'>
       <div className="grid grid-cols-5 gap-2 text-center text-xs">
 
-        {["📊", "📈", "🥧", "📉", "📋"].map((i, idx) => (
+        {[
+          { icon: "📊", type: "bar" },
+          { icon: "📈", type: "line" },
+          { icon: "🥧", type: "pie" },
+        ].map((i) => (
           <div
-            key={idx}
-            className="border rounded p-2 cursor-pointer hover:bg-gray-200"
+            key={i.type}
+            className={`flex items-center justify-center gap-1 border rounded-md px-3 py-2 cursor-pointer text-sm
+            ${chart.type === i.type
+                ? "bg-blue-500 text-white border-blue-500"
+                : "bg-white hover:bg-gray-100"}
+`}
+            onClick={() => dispatch(setChart({ type: i.type, }))}
           >
-            {i}
+            {i.icon}
           </div>
         ))}
 
       </div>
-      <div className="border-2 border-dashed border-gray-400 rounded p-2 min-h-[120px] bg-white"
+
+      {/* Axis Selection */}
+      {chart.type && (
+        <div className="space-y-2 text-sm">
+
+          <select
+            className="w-full border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            value={chart.x}
+            onChange={(e) => dispatch(setChart({ x: e.target.value, enabled: Boolean(e.target.value && chart.y), }))
+            }
+          >
+            <option value="">Select X Axis</option>
+
+            {selected.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+
+          <select
+            className="w-full border rounded p-1"
+            value={chart.y}
+            onChange={(e) => dispatch(setChart({ y: e.target.value, enabled: Boolean(chart.x && e.target.value), }))
+            }
+          >
+            <option value="">Select Y Axis</option>
+
+            {selected.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+
+          <button
+            onClick={() => dispatch(clearChart())}
+            className="w-full rounded-md bg-red-500 text-white text-sm py-1.5 hover:bg-red-600"
+          >
+            Remove Chart
+          </button>
+
+        </div>)}
+
+
+
+      <div className="border border-dashed border-gray-300 rounded-md p-2 min-h-[120px] bg-white"
         onDragOver={(e) => {
           e.preventDefault();
         }}
@@ -37,14 +102,15 @@ export default function VisualizationPanel() {
           }
         }}
       >
-        <p className='text-sm font-medium mb-1'>
+        <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">
           Fields
         </p>
+
 
         <div style={{ marginTop: 10 }}>
           {selected.map(col => (
             <label key={`${version}-${col}`}
-              className='flex items-center gap-2 text-sm mb-1'>
+              className="flex items-center gap-2 text-xs text-gray-700 mb-1 hover:bg-gray-100 px-1 py-0.5 rounded">
               <input
                 type="checkbox"
                 checked={true}
@@ -55,6 +121,8 @@ export default function VisualizationPanel() {
           ))}
         </div>
       </div>
+
+
     </div>
 
   )
