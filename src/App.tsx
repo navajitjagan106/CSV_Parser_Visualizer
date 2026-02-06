@@ -32,7 +32,7 @@ function App() {
       header: true,
       skipEmptyLines: true,
       // worker: false,        
-  dynamicTyping: true,
+      dynamicTyping: true,
       complete: (result) => {
         //console.log("Parsed Data: ",result.data)
         // setData(result.data as any[]);
@@ -97,7 +97,7 @@ function App() {
       <div className="flex flex-1 w-full overflow-hidden">
 
         {/* Report Area */}
-        <main className="flex-1 min-w-0 bg-white m-2 rounded shadow p-3 overflow-hidden">
+        <main className="flex-1 min-w-0 bg-gray-50 m-2 rounded-lg shadow-sm border p-3 overflow-hidden">
 
           <p className="text-sm font-medium mb-2 text-gray-600">
             Report View
@@ -115,7 +115,7 @@ function App() {
           </div>
 
           <div className="flex-1 p-3 overflow-auto">
-            <VisualisationPanel key={fileName}/>
+            <VisualisationPanel key={fileName} />
           </div>
 
         </aside>
