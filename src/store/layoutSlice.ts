@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-export type Aggregation = "sum" | "avg" | "min" | "max";
+export type Aggregation = "sum" | "avg" | "min" | "max" |"count";
 
 interface ChartState {
   enabled: boolean;

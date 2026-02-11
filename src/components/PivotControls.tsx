@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/store";
-import { setPivot,setChart } from "../store/layoutSlice";
+import { setPivot,setChart, clearChart } from "../store/layoutSlice";
 import { clearPivot } from "../store/layoutSlice";
+import { Root } from "react-dom/client";
 
 export default function PivotControls() {
   const dispatch = useDispatch();
 
   const columns = useSelector((s: RootState) => s.data.columns);
   const pivot = useSelector((s: RootState) => s.layout.pivot);
-
-  const [row, setRow] = useState(pivot.row);
+  const chart=useSelector((s:RootState)=>s.layout.chart)
+  const [row, setRow] = useState(pivot.row);    
   const [column, setColumn] = useState(pivot.column);
   const [value, setValue] = useState(pivot.value);
   const [agg, setAgg] = useState(pivot.agg);
@@ -22,6 +23,7 @@ export default function PivotControls() {
     }
 
     dispatch(
+        
       setPivot({
         enabled: true,
         row,
@@ -31,9 +33,6 @@ export default function PivotControls() {
       })
     );
   };
-
- 
-
 
   return (
     <div className="bg-gray-50 border rounded p-3 text-sm space-y-2">
@@ -113,6 +112,7 @@ export default function PivotControls() {
           <option value="avg">Average</option>
           <option value="min">Min</option>
           <option value="max">Max</option>
+          <option value="count">Count</option>
         </select>
       </div>
 
