@@ -10,6 +10,8 @@ import {
     XAxis,
     YAxis,
     ResponsiveContainer,
+    Cell,
+    Legend
 } from "recharts";
 
 interface Props {
@@ -65,6 +67,12 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
         );
     }
 
+    const getColor = (index: number) => {
+        const hue = (index * 137.5) % 360; // golden angle
+        return `hsl(${hue}, 70%, 50%)`;
+    };
+
+
 
     /* ---------- UI ---------- */
 
@@ -72,7 +80,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
 
 
     return (
-<div className="w-full flex flex-col bg-white rounded-lg shadow-sm border p-2 h-[520px]">
+<div className="w-full h-full flex flex-col bg-white rounded-lg shadow-sm border p-2">
 
 
             {/* ===== HEADER ===== */}
@@ -96,7 +104,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
             </div>
 
             {/* ===== CHART ===== */}
-            <div className="w-full flex-1 overfflow-hidden">
+            <div className="w-full flex-1 min-h-full">
 
 
                 <ResponsiveContainer
@@ -105,7 +113,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
 
                     {type === "bar" && (
                         <BarChart data={data} margin={{ top: 20, right: 20, left: 50, bottom: 80 }}
->
+                        >
                             <XAxis
                                 dataKey={xKey}
                                 angle={-25}
@@ -175,10 +183,34 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                                 cx="50%"
                                 cy="50%"
                                 outerRadius="65%"
-                                fill="#3b82f6"
-                                label={false}
-                            />
+                                //innerRadius="35%"
+                                //fill={getColor(index)}
+                                paddingAngle={1}
+                                //label={false}
+                                labelLine={false}
+
+
+                            >{data.map((_, index) => (
+                                <Cell
+                                    key={`cell-${index}`}
+                                    fill={getColor(index)}
+                                />
+                            ))}
+                            </Pie>
                             <Tooltip formatter={(v) => formatNumber(Number(v))} />
+
+                            <Legend
+                                layout="vertical"
+                                align="right"
+                                verticalAlign="middle"
+                                wrapperStyle={{
+                                    fontSize: "11px",
+                                    maxHeight: "200px",
+                                    overflowY: "auto",
+                                    paddingLeft: "10px",
+                                }}
+                            />
+
                         </PieChart>
                     )}
 
