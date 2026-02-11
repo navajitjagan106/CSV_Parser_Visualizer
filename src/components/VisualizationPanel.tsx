@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react'
 import { RootState } from '../store/store'
 import { selectColumn } from '../store/layoutSlice'
 import { useDispatch, useSelector } from 'react-redux';
-import { groupData } from "../utils/groupData";
+import PivotControls from "./PivotControls";
 import { setChart, clearChart } from "../store/layoutSlice";
 import type { Aggregation } from "../store/layoutSlice";
 
@@ -12,17 +11,8 @@ export default function VisualizationPanel() {
   const version = useSelector((s: RootState) => s.layout.version)
   const data = useSelector((s: RootState) => s.data.rows);
   const chart = useSelector((s: RootState) => s.layout.chart);
+  const layout = useSelector((s: RootState) => s.layout);
 
-const chartData = useMemo(() => {
-  if (!chart.x || !chart.y) return [];
-
-  return groupData(
-    data,
-    chart.x,
-    chart.y,
-    chart.agg ?? "sum"
-  );
-}, [data, chart.x, chart.y, chart.agg]);
 
 
 
@@ -36,6 +26,7 @@ const chartData = useMemo(() => {
           { icon: "📊", type: "bar" },
           { icon: "📈", type: "line" },
           { icon: "🥧", type: "pie" },
+          { icon: "📑", type: "pivot" },
         ].map((i) => (
           <div
             key={i.type}
@@ -44,34 +35,43 @@ const chartData = useMemo(() => {
                 ? "bg-blue-500 text-white border-blue-500"
                 : "bg-white hover:bg-gray-100"}
 `}
-            onClick={() => dispatch(setChart({ type: i.type, }))}
+            onClick={() =>
+              dispatch(
+                setChart({
+                  type: i.type as any,
+                  enabled: true,
+                })
+              )
+            }
+
           >
             {i.icon}
           </div>
         ))}
 
       </div>
-      <select
-  className="w-full border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
- value={chart.agg }
-  onChange={(e) =>{
-    const value = e.target.value as Aggregation;
-dispatch(
-  setChart({
-    agg: value,
-    enabled: Boolean(chart.x && chart.y),
-  })
-    )  }}
->
-  <option value="sum">Sum</option>
-  <option value="avg">Average</option>
-  <option value="min">Minimum</option>
-  <option value="max">Maximum</option>
-</select>
+      {chart.type && chart.type !== "pivot" && (<select
+        className="w-full border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+        value={chart.agg}
+        onChange={(e) => {
+          const value = e.target.value as Aggregation;
+          dispatch(
+            setChart({
+              agg: value,
+              enabled: Boolean(chart.x && chart.y),
+            })
+          )
+        }}
+      >
+        <option value="sum">Sum</option>
+        <option value="avg">Average</option>
+        <option value="min">Minimum</option>
+        <option value="max">Maximum</option>
+      </select>)}
 
 
       {/* Axis Selection */}
-      {chart.type && (
+      {chart.type && chart.type !== "pivot" && (
         <div className="space-y-2 text-sm">
 
           <select
@@ -108,6 +108,12 @@ dispatch(
           </button>
 
         </div>)}
+
+      {/* Pivot Controls */}
+      {chart.type === "pivot" && (
+        <PivotControls />
+      )}
+
 
 
 

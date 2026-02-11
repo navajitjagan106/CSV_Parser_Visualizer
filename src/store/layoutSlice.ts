@@ -3,16 +3,24 @@ export type Aggregation = "sum" | "avg" | "min" | "max";
 
 interface ChartState {
   enabled: boolean;
-  type: string;
+  type: "bar" | "line" | "pie" | "pivot" | "";
   x: string;
   y: string;
-  agg:Aggregation
+  agg: Aggregation
+}
+interface PivotState {
+  enabled: boolean,
+  row: string,
+  column: string,
+  value: string,
+  agg: Aggregation
 }
 
 interface LayoutState {
   columns: string[];
   version: number;
   chart: ChartState;
+  pivot: PivotState
 }
 
 const initialState: LayoutState = {
@@ -23,8 +31,16 @@ const initialState: LayoutState = {
     type: "",
     x: "",
     y: "",
-    agg:"sum"
+    agg: "sum"
   },
+  pivot: {
+    enabled: false,
+    row: "",
+    column: "",
+    value: "",
+    agg: "sum",
+  },
+
 };
 
 const layoutSlice = createSlice({
@@ -53,15 +69,40 @@ const layoutSlice = createSlice({
         ...action.payload,
       };
     },
+    setPivot(state, action: PayloadAction<Partial<PivotState>>) {
+      state.pivot = {
+        ...state.pivot,
+        ...action.payload,
+      }
+    },
 
-  
+    togglePivot(state) {
+      state.pivot.enabled = !state.pivot.enabled;
+
+    },
+    clearPivot(state) {
+      state.pivot = {
+        enabled: false,
+        row: "",
+        column: "",
+        value: "",
+        agg: "sum",
+      };
+
+      state.chart.type = "";
+      state.chart.enabled = false;
+    },
+
+
+
+
     clearChart(state) {
       state.chart = {
         enabled: false,
         type: "",
         x: "",
         y: "",
-        agg:"sum"
+        agg: "sum"
       };
     },
   },
@@ -72,6 +113,9 @@ export const {
   clearColumn,
   setChart,
   clearChart,
+  setPivot,
+  togglePivot,
+    clearPivot, 
 } = layoutSlice.actions;
 
 export default layoutSlice.reducer;
