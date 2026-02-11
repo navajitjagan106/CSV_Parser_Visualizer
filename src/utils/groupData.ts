@@ -1,41 +1,76 @@
 export function groupData(
   rows: any[],
   xKey: string,
-  yKey: string
+  yKey: string,
+  agg: "sum" | "avg" | "min" | "max"
 ) {
-  const map = new Map<string, number>();
+  type Bucket = {
+    sum: number;
+    count: number;
+    min: number;
+    max: number;
+  };
+
+  const map = new Map<string, Bucket>();
 
   rows.forEach((row) => {
-    // Get X value safely
-    const rawX = row[xKey];
-    const x = rawX !== undefined && rawX !== null
-      ? String(rawX).trim()
-      : "Unknown";
+    // X value
+    const x =
+      row[xKey] !== undefined && row[xKey] !== null
+        ? String(row[xKey]).trim()
+        : "Unknown";
 
-    // Get Y value safely
+    // Y value
     let rawY = row[yKey];
 
-    if (rawY === undefined || rawY === null || rawY === "") {
-      rawY = 0;
-    }
+    const y = Number(String(rawY ?? 0).replace(/,/g, ""));
 
-    // Remove commas & spaces ( "1,200" → "1200" )
-    const y = Number(String(rawY).replace(/,/g, "").trim());
+    if (isNaN(y)) return;
 
-    // If still NaN → make it 0
-    const safeY = isNaN(y) ? 0 : y;
-
-    // Aggregate
+    // Init bucket
     if (!map.has(x)) {
-      map.set(x, 0);
+      map.set(x, {
+        sum: 0,
+        count: 0,
+        min: y,
+        max: y,
+      });
     }
 
-    map.set(x, map.get(x)! + safeY);
+    const bucket = map.get(x)!;
+
+    // Update
+    bucket.sum += y;
+    bucket.count += 1;
+    bucket.min = Math.min(bucket.min, y);
+    bucket.max = Math.max(bucket.max, y);
   });
 
-  // Convert to chart format
-  return Array.from(map.entries()).map(([key, value]) => ({
-    [xKey]: key,
-    [yKey]: value,
-  }));
+  // Build output
+  return Array.from(map.entries()).map(([key, b]) => {
+    let value = 0;
+
+    switch (agg) {
+      case "avg":
+        value = b.count ? b.sum / b.count : 0;
+        break;
+
+      case "min":
+        value = b.min;
+        break;
+
+      case "max":
+        value = b.max;
+        break;
+
+      case "sum":
+      default:
+        value = b.sum;
+    }
+
+    return {
+      [xKey]: key,
+      [yKey]: Number(value.toFixed(2)),
+    };
+  });
 }

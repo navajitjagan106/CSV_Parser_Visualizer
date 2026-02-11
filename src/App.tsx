@@ -4,7 +4,7 @@ import { setData, clearData } from "./store/dataSlice";
 import DataPanel from "./components/DataPanel";
 import { RootState } from "./store/store";
 import MainTable from "./components/MainTable";
-import { clearColumn } from "./store/layoutSlice";
+import { clearColumn,clearChart } from "./store/layoutSlice";
 import VisualisationPanel from "./components/VisualizationPanel";
 import { useRef, useState } from "react";
 
@@ -50,6 +50,7 @@ function App() {
   const handleReset = () => {
     dispatch(clearColumn());
     dispatch(clearData());
+    dispatch(clearChart());
 
     setHasFile(false);
     setFileName("");

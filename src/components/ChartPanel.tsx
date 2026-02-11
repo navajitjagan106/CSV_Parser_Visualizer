@@ -17,9 +17,11 @@ interface Props {
     xKey: string;
     yKey: string;
     type: string;
+    agg: "sum" | "avg" | "min" | "max";
+
 }
 
-export default function ChartPanel({ data, xKey, yKey, type }: Props) {
+export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
 
     /* ---------- Helpers ---------- */
 
@@ -29,13 +31,27 @@ export default function ChartPanel({ data, xKey, yKey, type }: Props) {
         if (type === "pie") return "Pie Chart";
         return "Chart";
     }, [type]);
+    const summaryValue = useMemo(() => {
+        if (!data.length) return 0;
 
-    const totalValue = useMemo(() => {
-        return data.reduce(
-            (sum, d) => sum + (Number(d[yKey]) || 0),
-            0
-        );
-    }, [data, yKey]);
+        const values = data.map((d) => Number(d[yKey]) || 0);
+
+        switch (agg) {
+            case "avg":
+                return values.reduce((a, b) => a + b, 0) / values.length;
+
+            case "min":
+                return Math.min(...values);
+
+            case "max":
+                return Math.max(...values);
+
+            case "sum":
+            default:
+                return values.reduce((a, b) => a + b, 0);
+        }
+    }, [data, yKey, agg]);
+
 
     const formatNumber = (n: number) => {
         return new Intl.NumberFormat().format(n);
@@ -52,8 +68,11 @@ export default function ChartPanel({ data, xKey, yKey, type }: Props) {
 
     /* ---------- UI ---------- */
 
+    //  console.log("Rendered data:", data, "Agg:", agg);
+
+
     return (
-        <div className="w-full h-full flex flex-col bg-white rounded-lg shadow-sm border p-1 overflow-hidden">
+<div className="w-full flex flex-col bg-white rounded-lg shadow-sm border p-2 h-[520px]">
 
 
             {/* ===== HEADER ===== */}
@@ -66,28 +85,33 @@ export default function ChartPanel({ data, xKey, yKey, type }: Props) {
 
                 {/* Description */}
                 <p className="text-xs text-gray-500">
-                    Showing SUM({yKey}) grouped by {xKey}
+                    Showing {agg.toUpperCase()}({yKey}) grouped by {xKey}
+
                 </p>
 
                 {/* Summary */}
                 <p className="text-xs text-gray-400 mt-0.5">
-                    Categories: {data.length} | Total: {formatNumber(totalValue)}
+                    Categories: {data.length} | Total: {formatNumber(summaryValue)}
                 </p>
             </div>
 
             {/* ===== CHART ===== */}
-            <div className="flex-1 min-h-[320px] overflow-x-auto">
+            <div className="w-full flex-1 overfflow-hidden">
 
-                <ResponsiveContainer width="100%" height="100%">
+
+                <ResponsiveContainer
+                    width="100%"
+                    height="100%">
 
                     {type === "bar" && (
-                        <BarChart data={data} margin={{ top: 20, right: 20, left: 50, bottom: 40 }}>
+                        <BarChart data={data} margin={{ top: 20, right: 20, left: 50, bottom: 80 }}
+>
                             <XAxis
                                 dataKey={xKey}
                                 angle={-25}
                                 textAnchor="end"
                                 interval={0}
-                                height={70}
+                                height={90}
                                 tickFormatter={(v) =>
                                     String(v).length > 18
                                         ? String(v).slice(0, 18) + "…"
@@ -95,19 +119,23 @@ export default function ChartPanel({ data, xKey, yKey, type }: Props) {
                                 }
                             />
 
-                            <YAxis tickFormatter={(v) =>
-                                new Intl.NumberFormat("en", {
-                                    notation: "compact",
-                                    compactDisplay: "short",
-                                }).format(v)
-                            } />
+                            <YAxis
+                                domain={["auto", "auto"]}
+                                tickFormatter={(v) =>
+                                    new Intl.NumberFormat("en", {
+                                        notation: "compact",
+                                        compactDisplay: "short",
+                                    }).format(v)
+                                }
+                            />
+
                             <Tooltip formatter={(v) => formatNumber(Number(v))} />
                             <Bar dataKey={yKey} fill="#3b82f6" />
                         </BarChart>
                     )}
 
                     {type === "line" && (
-                        <LineChart data={data} margin={{ top: 20, right: 20, left: 50, bottom: 40 }}>
+                        <LineChart data={data} margin={{ top: 20, right: 20, left: 50, bottom: 80 }}>
                             <XAxis
                                 dataKey={xKey}
                                 angle={-25}
@@ -121,28 +149,34 @@ export default function ChartPanel({ data, xKey, yKey, type }: Props) {
                                 }
                             />
 
-                            <YAxis tickFormatter={(v) =>
-                                new Intl.NumberFormat("en", {
-                                    notation: "compact",
-                                    compactDisplay: "short",
-                                }).format(v)
-                            } />
+                            <YAxis
+                                domain={["auto", "auto"]}
+                                tickFormatter={(v) =>
+                                    new Intl.NumberFormat("en", {
+                                        notation: "compact",
+                                        compactDisplay: "short",
+                                    }).format(v)
+                                }
+                            />
+
                             <Tooltip formatter={(v) => formatNumber(Number(v))} />
                             <Line dataKey={yKey} stroke="#2563eb" />
                         </LineChart>
                     )}
 
                     {type === "pie" && (
-                        <PieChart margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
+                        <PieChart margin={{ top: 20, right: 20, left: 50, bottom: 80 }}>
 
                             <Pie
                                 data={data}
 
                                 dataKey={yKey}
                                 nameKey={xKey}
-                                outerRadius={90}
+                                cx="50%"
+                                cy="50%"
+                                outerRadius="65%"
                                 fill="#3b82f6"
-                                label
+                                label={false}
                             />
                             <Tooltip formatter={(v) => formatNumber(Number(v))} />
                         </PieChart>

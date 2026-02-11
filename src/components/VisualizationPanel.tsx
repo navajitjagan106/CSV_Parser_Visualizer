@@ -1,11 +1,10 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { RootState } from '../store/store'
 import { selectColumn } from '../store/layoutSlice'
 import { useDispatch, useSelector } from 'react-redux';
-import { Root } from 'react-dom/client';
-import ChartPanel from "./ChartPanel";
 import { groupData } from "../utils/groupData";
 import { setChart, clearChart } from "../store/layoutSlice";
+import type { Aggregation } from "../store/layoutSlice";
 
 export default function VisualizationPanel() {
   const dispatch = useDispatch();
@@ -14,14 +13,18 @@ export default function VisualizationPanel() {
   const data = useSelector((s: RootState) => s.data.rows);
   const chart = useSelector((s: RootState) => s.layout.chart);
 
+const chartData = useMemo(() => {
+  if (!chart.x || !chart.y) return [];
+
+  return groupData(
+    data,
+    chart.x,
+    chart.y,
+    chart.agg ?? "sum"
+  );
+}, [data, chart.x, chart.y, chart.agg]);
 
 
-  const chartData = useMemo(() => {
-    if (!chart.x || !chart.y) return [];
-
-    return groupData(data, chart.x, chart.y);
-
-  }, [data, chart.x, chart.y]);
 
 
 
@@ -48,6 +51,24 @@ export default function VisualizationPanel() {
         ))}
 
       </div>
+      <select
+  className="w-full border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+ value={chart.agg }
+  onChange={(e) =>{
+    const value = e.target.value as Aggregation;
+dispatch(
+  setChart({
+    agg: value,
+    enabled: Boolean(chart.x && chart.y),
+  })
+    )  }}
+>
+  <option value="sum">Sum</option>
+  <option value="avg">Average</option>
+  <option value="min">Minimum</option>
+  <option value="max">Maximum</option>
+</select>
+
 
       {/* Axis Selection */}
       {chart.type && (
