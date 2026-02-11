@@ -1,11 +1,12 @@
-import { useMemo, useState, useRef, useLayoutEffect, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { RootState } from '../store/store';
 import { VariableSizeGrid as Grid } from "react-window";
 import ChartPanel from "./ChartPanel";
 import { groupDataAll } from "../utils/groupDataAll";
 import { useDispatch, useSelector } from "react-redux";
-import { setChart } from "../store/layoutSlice";
-//import KpiBar from "./KpiBar";
+import { pivotData } from "../utils/pivotData";
+
+
 
 
 
@@ -16,6 +17,8 @@ export default function MainTable() {
     const data = useSelector((s: RootState) => s.data.rows);
     const selected = useSelector((s: RootState) => s.layout.columns);
     const allcol = useSelector((s: RootState) => s.data.columns);
+    const layout = useSelector((s: RootState) => s.layout);
+
     const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
     const resizingCol = useRef<string | null>(null);
     const startX = useRef(0);
@@ -23,6 +26,18 @@ export default function MainTable() {
     const chart = useSelector((s: RootState) => s.layout.chart);
 
     const dispatch = useDispatch();
+
+    const pivotResult = useMemo(() => {
+  if (chart.type !== "pivot") return null;
+
+  return pivotData(
+    data,
+    layout.pivot.row,
+    layout.pivot.column,
+    layout.pivot.value,
+    layout.pivot.agg
+  );
+}, [data, layout.pivot, chart.type]);
 
 
 
@@ -41,19 +56,43 @@ export default function MainTable() {
         return allcol.filter(c => selected.includes(c));
     }, [data, selected, allcol]);
 
-    useEffect(() => {
+   
+
+    const finalColumns = useMemo(() => {
+        if (chart.type === "pivot" && pivotResult?.length) {
+            return Object.keys(pivotResult[0]);
+        }
+
+        return columns;
+    }, [chart.type, pivotResult, columns]);
+     useEffect(() => {
         if (!columns.length) return;
         const init: Record<string, number> = {};
-        columns.forEach(col => {
+        finalColumns.forEach(col => {
             init[col] = Math.max(col.length * 12, 180);
         });
         setColumnWidths(init);
-    }, [columns]);
+    }, [finalColumns]);
+
+    const finalRows = useMemo(() => {
+        if (chart.type === "pivot" && pivotResult) {
+            return pivotResult;
+        }
+
+        return data;
+    }, [chart.type, pivotResult, data]);
+
+
+
 
     const getColumnWidth = (index: number) => {
-        if (index === 0) return 48; // index column
-        return columnWidths[columns[index - 1]] || 180;
+        if (index === 0) return 48;
+
+        const col = finalColumns[index - 1];
+
+        return columnWidths[col] || 180;
     };
+
 
     if (!data.length)
         return (
@@ -69,8 +108,7 @@ export default function MainTable() {
             </p>
         );
 
-    const columnCount = columns.length + 1;
-    const rowCount = data.length + 1;
+  
 
     const getRowHeight = (index: number) => {
         return index === 0 ? 40 : ROW_HEIGHT;
@@ -108,67 +146,9 @@ export default function MainTable() {
 
 
 
-    const Cell = ({ columnIndex, rowIndex, style }: any) => {
-        if (rowIndex === 0) {
-            if (columnIndex === 0) {
-                return (
-                    <div
-                        style={{
-                            ...style,
-                            position: "relative",
-                        }}
-                        className="border-b border-r bg-gray-100 font-semibold flex items-center justify-center"
-                    >
-                        #
-                    </div>
-                );
-            }
+    
 
-            return (
-                <div
-                    style={style}
-                    className="border-b border-r bg-gray-100 font-semibold px-2 truncate"
-                >
-                    {columns[columnIndex - 1]}
-                    {/* Resize Handle */}
-                    <div
-                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400"
-                        onMouseDown={(e) => {
-                            e.preventDefault();
-                            startResize(e, columns[columnIndex - 1])
-                        }}
-                    />
-                </div>
 
-            );
-        }
-
-        // DATA ROW
-        const row = data[rowIndex - 1];
-
-        if (columnIndex === 0) {
-            return (
-                <div
-                    style={style}
-                    className="border-r border-b text-center"
-                >
-                    {rowIndex}
-                </div>
-            );
-        }
-
-        const col = columns[columnIndex - 1];
-
-        return (
-            <div
-                style={style}
-                className="border-r border-b px-2 truncate"
-                title={String(row[col] ?? "")}
-            >
-                {row[col]}
-            </div>
-        );
-    };
 
     return (
 
@@ -176,12 +156,18 @@ export default function MainTable() {
             ref={containerRef}
             className="flex flex-col gap-2 h-full border border-gray-400 "
         >
+
+
+
+
+
+
             {chart.enabled && chartData.length > 0 && (
 
                 <div className="h-[420px] border-b bg-white p-3  flex flex-col">
 
-                    {/* KPI BAR */}
-                   
+
+
 
                     {/* MAIN CHART */}
                     <div className="flex-1 min-h-0">
@@ -203,18 +189,76 @@ export default function MainTable() {
 
                 <Grid
                     ref={gridRef}
-
-                    columnCount={columnCount}
-                    rowCount={rowCount}
+                    columnCount={finalColumns.length + 1}
+                    rowCount={finalRows.length + 1}
                     columnWidth={getColumnWidth}
                     rowHeight={getRowHeight}
                     width={containerRef.current?.clientWidth || 800}
                     height={containerRef.current?.clientHeight || 600}
-                    overscanRowCount={5}
-                    overscanColumnCount={2}
                 >
-                    {Cell}
+                    {({ columnIndex, rowIndex, style }) => {
+
+                        /* HEADER */
+                        if (rowIndex === 0) {
+                            if (columnIndex === 0) {
+                                return (
+                                    <div
+                                        style={style}
+                                        className="border-b border-r bg-gray-100 font-semibold flex items-center justify-center"
+                                    >
+                                        #
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div
+                                    style={style}
+                                    className="border-b border-r bg-gray-100 font-semibold px-2 truncate relative"
+                                >
+                                    {finalColumns[columnIndex - 1]}
+
+                                    {/* Resize */}
+                                    <div
+                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400"
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            startResize(e, finalColumns[columnIndex - 1]);
+                                        }}
+                                    />
+                                </div>
+                            );
+                        }
+
+                        /* INDEX */
+                        if (columnIndex === 0) {
+                            return (
+                                <div
+                                    style={style}
+                                    className="border-r border-b text-center"
+                                >
+                                    {rowIndex}
+                                </div>
+                            );
+                        }
+
+                        /* DATA */
+                        const row = finalRows[rowIndex - 1];
+                        const col = finalColumns[columnIndex - 1];
+
+                        return (
+                            <div
+                                style={style}
+                                className="border-r border-b px-2 truncate"
+                                title={String(row[col] ?? "")}
+                            >
+                                {row[col]}
+                            </div>
+                        );
+                    }}
                 </Grid>
+
+
             </div>
 
 
