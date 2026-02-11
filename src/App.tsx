@@ -1,8 +1,7 @@
 import Papa from "papaparse";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch} from "react-redux";
 import { setData, clearData } from "./store/dataSlice";
 import DataPanel from "./components/DataPanel";
-import { RootState } from "./store/store";
 import MainTable from "./components/MainTable";
 import { clearColumn,clearChart } from "./store/layoutSlice";
 import VisualisationPanel from "./components/VisualizationPanel";
@@ -11,12 +10,10 @@ import { useRef, useState } from "react";
 
 function App() {
   const dispatch = useDispatch();
-  const data = useSelector((s: RootState) => s.data.rows);
   const fileRef = useRef<HTMLInputElement>(null);
   const [hasFile, setHasFile] = useState(false);
   const [fileName, setFileName] = useState("");
   const [loading, setLoading] = useState(false);
-  //  const [data,setData]=useState<any[]>([])
 
   const handleUpload = (e: any) => {
     const file = e.target.files[0];
@@ -34,11 +31,8 @@ function App() {
       // worker: false,        
       dynamicTyping: true,
       complete: (result) => {
-        //console.log("Parsed Data: ",result.data)
-        // setData(result.data as any[]);
         dispatch(setData(result.data as Record<string, any>[]));
         setLoading(false);
-
       },
       error: () => {
         setLoading(false);

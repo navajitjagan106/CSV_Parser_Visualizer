@@ -7,11 +7,10 @@ import type { Aggregation } from "../store/layoutSlice";
 
 export default function VisualizationPanel() {
   const dispatch = useDispatch();
-  const selected = useSelector((s: RootState) => s.layout.columns);
+  const selected = useSelector((s: RootState) => s.layout.columns)
   const version = useSelector((s: RootState) => s.layout.version)
-  const data = useSelector((s: RootState) => s.data.rows);
-  const chart = useSelector((s: RootState) => s.layout.chart);
-  const layout = useSelector((s: RootState) => s.layout);
+  const chart = useSelector((s: RootState) => s.layout.chart)
+  const pivot = useSelector((s: RootState) => s.layout.pivot);
 
 
 
@@ -20,36 +19,56 @@ export default function VisualizationPanel() {
 
   return (
     <div className='space-y-3'>
+
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        Charts
+      </p>
+
       <div className="grid grid-cols-5 gap-2 text-center text-xs">
 
         {[
           { icon: "📊", type: "bar" },
           { icon: "📈", type: "line" },
           { icon: "🥧", type: "pie" },
-          { icon: "📑", type: "pivot" },
+
         ].map((i) => (
           <div
             key={i.type}
+
             className={`flex items-center justify-center gap-1 border rounded-md px-3 py-2 cursor-pointer text-sm
             ${chart.type === i.type
                 ? "bg-blue-500 text-white border-blue-500"
                 : "bg-white hover:bg-gray-100"}
 `}
-            onClick={() =>
-              dispatch(
-                setChart({
-                  type: i.type as any,
-                  enabled: true,
-                })
-              )
-            }
-
+            onClick={() => {
+              if (i.type === "pivot") {
+                // on clicking pivot, clear chart data
+                dispatch(
+                  setChart({
+                    type: "pivot",
+                    enabled: false,
+                    x: "",
+                    y: "",
+                  })
+                );
+              }
+              else {
+                dispatch(
+                  setChart({
+                    type: i.type as any,
+                    enabled: true,
+                  })
+                )
+              }
+            }}
           >
             {i.icon}
           </div>
         ))}
 
       </div>
+
+
       {chart.type && chart.type !== "pivot" && (<select
         className="w-full border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
         value={chart.agg}
@@ -67,6 +86,7 @@ export default function VisualizationPanel() {
         <option value="avg">Average</option>
         <option value="min">Minimum</option>
         <option value="max">Maximum</option>
+        <option value="count">Count</option>
       </select>)}
 
 
@@ -109,8 +129,35 @@ export default function VisualizationPanel() {
 
         </div>)}
 
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-2">
+        Tables
+      </p>
+      {/* Separate Pivot Button */}
+      <div
+        className={`flex items-center justify-center gap-2 border rounded-md px-3 py-2 cursor-pointer text-sm
+  ${chart.type === "pivot"
+            ? "bg-blue-500 text-white border-blue-500"
+            : "bg-white hover:bg-gray-100"}
+  `}
+        onClick={() => {
+          dispatch(
+            setChart({
+              type: "pivot",
+              enabled: false,
+              x: "",
+              y: "",
+            })
+          );
+        }}
+      >
+        📑 Pivot Table
+      </div>
+
+
+
       {/* Pivot Controls */}
-      {chart.type === "pivot" && (
+      {(chart.type === "pivot" || pivot.enabled) && (
+
         <PivotControls />
       )}
 

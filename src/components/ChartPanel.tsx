@@ -19,7 +19,7 @@ interface Props {
     xKey: string;
     yKey: string;
     type: string;
-    agg: "sum" | "avg" | "min" | "max";
+    agg: "sum" | "avg" | "min" | "max"|"count";
 
 }
 
