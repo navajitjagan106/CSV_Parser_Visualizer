@@ -174,11 +174,11 @@ export default function MainTable() {
 
         <div
             ref={containerRef}
-            className="flex flex-col h-full border border-gray-400 "
+            className="flex flex-col gap-2 h-full border border-gray-400 "
         >
             {chart.enabled && chartData.length > 0 && (
 
-                <div className="h-[420px] border-b bg-white p-3 flex flex-col">
+                <div className="h-[420px] border-b bg-white p-3  flex flex-col">
 
                     {/* KPI BAR */}
                    
