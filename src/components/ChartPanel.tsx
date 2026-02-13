@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
     BarChart,
     Bar,
@@ -28,7 +28,9 @@ interface Props {
 
 export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
 
-    /* ---------- Helpers ---------- */
+    const [limit, setLimit] = useState(15);
+    const [sortMode, setSortMode] = useState<"none" | "desc" | "asc">("desc");
+
 
     const chartName = useMemo(() => {
         if (type === "bar") return "Bar Chart";
@@ -58,6 +60,51 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
     }, [data, yKey, agg]);
 
 
+    const processedData = useMemo(() => {
+        if (!data?.length) return [];
+
+        let result = [...data]; // clone
+
+        if (sortMode === "desc") {
+            result.sort((a, b) => Number(b[yKey]) - Number(a[yKey]));
+        }
+
+        if (sortMode === "asc") {
+            result.sort((a, b) => Number(a[yKey]) - Number(b[yKey]));
+        }
+
+        // Limit
+        if (limit !== 0 && sortMode !== "none") {
+            result = result.slice(0, limit);
+        }
+
+        return result;
+
+    }, [data, limit, yKey, sortMode]);
+    const MAX_VISIBLE = 12;
+    const displayData = processedData.slice(0, MAX_VISIBLE);
+
+
+    const hasLongLabels = useMemo(() => {
+        return processedData.some(
+            (d) => String(d[xKey]).length > 20
+        );
+    }, [processedData, xKey]);
+
+    const CustomTooltip = ({ active, payload }: any) => {
+        if (!active || !payload?.length) return null;
+
+        const d = payload[0].payload;
+
+        return (
+            <div className="bg-white border shadow rounded px-2 py-1 text-xs">
+                <p className="font-medium">{d[xKey]}</p>
+                <p>{yKey}: {formatNumber(Number(d[yKey]))}</p>
+            </div>
+        );
+    };
+
+
     const formatNumber = (n: number) => {
         return new Intl.NumberFormat().format(n);
     };
@@ -76,10 +123,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
     };
 
 
-
     /* ---------- UI ---------- */
-
-    //  console.log("Rendered data:", data, "Agg:", agg);
 
 
     return (
@@ -88,6 +132,37 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
 
             {/* ===== HEADER ===== */}
             <div className="mb-2 pb-1 border-b flex flex-col gap-0.5">
+
+                <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-gray-500">Show:</span>
+
+                    <select
+                        value={limit}
+                        disabled={sortMode === "none"}
+
+                        onChange={(e) => setLimit(Number(e.target.value))}
+                        className="text-xs border rounded px-1 py-0.5"
+                    >
+                        <option value={10}>Top 10</option>
+                        <option value={15}>Top 15</option>
+                        <option value={20}>Top 20</option>
+                        <option value={0}>All</option>
+                    </select>
+
+                    <select
+                        value={sortMode}
+                        onChange={(e) => setSortMode(e.target.value as any)}
+                        className="text-xs border rounded px-1 py-0.5"
+                    >
+                        <option value="desc">High → Low</option>
+                        <option value="asc">Low → High</option>
+                        <option value="none">Original</option>
+                    </select>
+                </div>
+
+
+
+
 
                 {/* Title */}
                 <h3 className="text-base font-semibold text-gray-800">
@@ -107,7 +182,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
             </div>
 
             {/* ===== CHART ===== */}
-            <div className="w-full flex-1 min-h-full">
+            <div className="w-full min-h-full">
 
 
                 <ResponsiveContainer
@@ -115,13 +190,15 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                     height="100%">
 
                     {type === "bar" && (
-                        <BarChart data={data} margin={{ top: 20, right: 20, left: 50, bottom: 80 }}
+                        <BarChart
+                            data={processedData}
+                            margin={{ top: 20, right: 20, left: 40, bottom: 80 }}
                         >
                             <XAxis
                                 dataKey={xKey}
                                 angle={-25}
                                 textAnchor="end"
-                                interval={0}
+                                interval="preserveStartEnd"
                                 height={90}
                                 tickFormatter={(v) =>
                                     String(v).length > 18
@@ -129,9 +206,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                                         : v
                                 }
                             />
-
                             <YAxis
-                                domain={["auto", "auto"]}
                                 tickFormatter={(v) =>
                                     new Intl.NumberFormat("en", {
                                         notation: "compact",
@@ -140,18 +215,20 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                                 }
                             />
 
-                            <Tooltip formatter={(v) => formatNumber(Number(v))} />
+                            <Tooltip content={<CustomTooltip />} />
+
                             <Bar dataKey={yKey} fill="#3b82f6" />
                         </BarChart>
                     )}
 
+
                     {type === "line" && (
-                        <LineChart data={data} margin={{ top: 20, right: 20, left: 50, bottom: 80 }}>
+                        <LineChart data={processedData} margin={{ top: 20, right: 20, left: 50, bottom: 80 }}>
                             <XAxis
                                 dataKey={xKey}
                                 angle={-25}
                                 textAnchor="end"
-                                interval={0}
+                                interval="preserveStartEnd"
                                 height={70}
                                 tickFormatter={(v) =>
                                     String(v).length > 18
@@ -179,7 +256,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                         <PieChart margin={{ top: 20, right: 20, left: 50, bottom: 80 }}>
 
                             <Pie
-                                data={data}
+                                data={processedData}
 
                                 dataKey={yKey}
                                 nameKey={xKey}
@@ -214,7 +291,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                     )}
 
                     {(type === "area") && (
-                        <AreaChart data={data} margin={{ top: 20, right: 20, left: 50, bottom: 80 }}>
+                        <AreaChart data={processedData} margin={{ top: 20, right: 20, left: 50, bottom: 80 }}>
                             <XAxis dataKey={xKey}
                             />
                             <YAxis />
@@ -227,11 +304,11 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
 
                     {(type === "scatter") && (
                         <ScatterChart margin={{ top: 20, right: 20, left: 50, bottom: 80 }}>
-                        <XAxis dataKey={xKey} type="number" />
-                        <YAxis dataKey={yKey} type="number" />
-                        <Tooltip />
-                        <Scatter data={data} />
-                    </ScatterChart>)}
+                            <XAxis dataKey={xKey} type="number" />
+                            <YAxis dataKey={yKey} type="number" />
+                            <Tooltip />
+                            <Scatter data={data} />
+                        </ScatterChart>)}
 
 
                 </ResponsiveContainer>

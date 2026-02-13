@@ -42,16 +42,7 @@ function App() {
   }
 
   const handleReset = () => {
-    dispatch(clearColumn());
-    dispatch(clearData());
-    dispatch(clearChart());
-
-    setHasFile(false);
-    setFileName("");
-    setLoading(false);
-    if (fileRef.current) {
-      fileRef.current.value = "";
-    }
+   window.location.reload();
   };
   return (
 
