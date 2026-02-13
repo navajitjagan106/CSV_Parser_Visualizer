@@ -62,34 +62,19 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
 
     const processedData = useMemo(() => {
         if (!data?.length) return [];
-
         let result = [...data]; // clone
-
         if (sortMode === "desc") {
             result.sort((a, b) => Number(b[yKey]) - Number(a[yKey]));
         }
-
         if (sortMode === "asc") {
             result.sort((a, b) => Number(a[yKey]) - Number(b[yKey]));
         }
-
         // Limit
         if (limit !== 0 && sortMode !== "none") {
             result = result.slice(0, limit);
         }
-
         return result;
-
     }, [data, limit, yKey, sortMode]);
-    const MAX_VISIBLE = 12;
-    const displayData = processedData.slice(0, MAX_VISIBLE);
-
-
-    const hasLongLabels = useMemo(() => {
-        return processedData.some(
-            (d) => String(d[xKey]).length > 20
-        );
-    }, [processedData, xKey]);
 
     const CustomTooltip = ({ active, payload }: any) => {
         if (!active || !payload?.length) return null;
@@ -160,10 +145,6 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                     </select>
                 </div>
 
-
-
-
-
                 {/* Title */}
                 <h3 className="text-base font-semibold text-gray-800">
                     {chartName}: {yKey} by {xKey}
@@ -172,7 +153,6 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                 {/* Description */}
                 <p className="text-xs text-gray-500">
                     Showing {agg.toUpperCase()}({yKey}) grouped by {xKey}
-
                 </p>
 
                 {/* Summary */}
@@ -183,7 +163,6 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
 
             {/* ===== CHART ===== */}
             <div className="w-full min-h-full">
-
 
                 <ResponsiveContainer
                     width="100%"
@@ -214,9 +193,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                                     }).format(v)
                                 }
                             />
-
                             <Tooltip content={<CustomTooltip />} />
-
                             <Bar dataKey={yKey} fill="#3b82f6" />
                         </BarChart>
                     )}
@@ -236,7 +213,6 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                                         : v
                                 }
                             />
-
                             <YAxis
                                 domain={["auto", "auto"]}
                                 tickFormatter={(v) =>
@@ -246,7 +222,6 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                                     }).format(v)
                                 }
                             />
-
                             <Tooltip formatter={(v) => formatNumber(Number(v))} />
                             <Line dataKey={yKey} stroke="#2563eb" />
                         </LineChart>
@@ -254,10 +229,8 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
 
                     {type === "pie" && (
                         <PieChart margin={{ top: 20, right: 20, left: 50, bottom: 80 }}>
-
                             <Pie
                                 data={processedData}
-
                                 dataKey={yKey}
                                 nameKey={xKey}
                                 cx="50%"
@@ -265,7 +238,6 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                                 outerRadius="65%"
                                 paddingAngle={1}
                                 labelLine={false}
-
                             >{data.map((_, index) => (
                                 <Cell
                                     key={`cell-${index}`}
@@ -274,7 +246,6 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                             ))}
                             </Pie>
                             <Tooltip formatter={(v) => formatNumber(Number(v))} />
-
                             <Legend
                                 layout="vertical"
                                 align="right"
@@ -286,7 +257,6 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                                     paddingLeft: "10px",
                                 }}
                             />
-
                         </PieChart>
                     )}
 
@@ -298,9 +268,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                             <Tooltip />
                             <Area type="monotone" dataKey={yKey} />
                         </AreaChart>
-
                     )}
-
 
                     {(type === "scatter") && (
                         <ScatterChart margin={{ top: 20, right: 20, left: 50, bottom: 80 }}>
@@ -309,7 +277,6 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                             <Tooltip />
                             <Scatter data={data} />
                         </ScatterChart>)}
-
 
                 </ResponsiveContainer>
             </div>

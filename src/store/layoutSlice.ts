@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-export type Aggregation = "sum" | "avg" | "min" | "max" |"count";
+export type Aggregation = "sum" | "avg" | "min" | "max" | "count";
 
 interface ChartState {
   enabled: boolean;
@@ -93,8 +93,25 @@ const layoutSlice = createSlice({
       state.chart.enabled = false;
     },
 
+    reorderColumns: (state, action) => {
+      const { from, to } = action.payload;
 
+      const updated = [...state.columns];
+      const [moved] = updated.splice(from, 1);
+      updated.splice(to, 0, moved);
 
+      state.columns = updated;
+      state.version++; // force re-render
+    },
+
+    resetColumnsFromAll: (state, action:PayloadAction<string[]>) => {
+      const allcol = action.payload;
+      // Keep only selected ones, but in original order
+      state.columns = allcol.filter(c =>
+        state.columns.includes(c)
+      );
+      state.version++;
+    },
 
     clearChart(state) {
       state.chart = {
@@ -115,7 +132,9 @@ export const {
   clearChart,
   setPivot,
   togglePivot,
-    clearPivot, 
+  clearPivot,
+  reorderColumns,
+  resetColumnsFromAll,
 } = layoutSlice.actions;
 
 export default layoutSlice.reducer;

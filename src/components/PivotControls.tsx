@@ -1,20 +1,25 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../store/store";
-import { setPivot,setChart, clearChart } from "../store/layoutSlice";
+import { setPivot} from "../store/layoutSlice";
 import { clearPivot } from "../store/layoutSlice";
-import { Root } from "react-dom/client";
+
 
 export default function PivotControls() {
   const dispatch = useDispatch();
-
-  const columns = useSelector((s: RootState) => s.data.columns);
+  const selected = useSelector((s: RootState) => s.layout.columns);
   const pivot = useSelector((s: RootState) => s.layout.pivot);
-  const chart=useSelector((s:RootState)=>s.layout.chart)
+  const allcol=useSelector((s:RootState)=>s.data.columns)
   const [row, setRow] = useState(pivot.row);    
   const [column, setColumn] = useState(pivot.column);
   const [value, setValue] = useState(pivot.value);
   const [agg, setAgg] = useState(pivot.agg);
+
+
+  const columns = useMemo(() => {    
+          if (!selected.length) return [];
+          return allcol.filter(c => selected.includes(c));
+      }, [ selected, allcol]);
 
   const applyPivot = () => {
     if (!row || !column || !value) {
@@ -22,8 +27,7 @@ export default function PivotControls() {
       return;
     }
 
-    dispatch(
-        
+    dispatch(       
       setPivot({
         enabled: true,
         row,
@@ -36,11 +40,10 @@ export default function PivotControls() {
 
   return (
     <div className="bg-gray-50 border rounded p-3 text-sm space-y-2">
-
       <h3 className="font-semibold text-gray-700">
         📊 Pivot Settings
       </h3>
-
+      
       {/* ROW */}
       <div>
         <label className="block text-xs text-gray-500 mb-1">
