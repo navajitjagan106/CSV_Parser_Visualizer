@@ -5,7 +5,7 @@ interface GroupDataResult {
   avg: GroupedData[];
   min: GroupedData[];
   max: GroupedData[];
-  count: GroupedData[];  // Add this!
+  count: GroupedData[];  
 }
 
 export function groupDataAll(

@@ -3,7 +3,7 @@ import { useDispatch} from "react-redux";
 import { setData, clearData } from "./store/dataSlice";
 import DataPanel from "./components/DataPanel";
 import MainTable from "./components/MainTable";
-import { clearColumn,clearChart } from "./store/layoutSlice";
+import { clearColumn} from "./store/layoutSlice";
 import VisualisationPanel from "./components/VisualizationPanel";
 import { useRef, useState } from "react";
 
