@@ -11,7 +11,11 @@ import {
     YAxis,
     ResponsiveContainer,
     Cell,
-    Legend
+    Legend,
+    AreaChart,
+    Area,
+    ScatterChart,
+    Scatter
 } from "recharts";
 
 interface Props {
@@ -19,8 +23,7 @@ interface Props {
     xKey: string;
     yKey: string;
     type: string;
-    agg: "sum" | "avg" | "min" | "max"|"count";
-
+    agg: "sum" | "avg" | "min" | "max" | "count";
 }
 
 export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
@@ -80,7 +83,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
 
 
     return (
-<div className="w-full h-full flex flex-col bg-white rounded-lg shadow-sm border p-2">
+        <div className="w-full h-full flex flex-col bg-white rounded-lg shadow-sm border p-2">
 
 
             {/* ===== HEADER ===== */}
@@ -183,12 +186,8 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                                 cx="50%"
                                 cy="50%"
                                 outerRadius="65%"
-                                //innerRadius="35%"
-                                //fill={getColor(index)}
                                 paddingAngle={1}
-                                //label={false}
                                 labelLine={false}
-
 
                             >{data.map((_, index) => (
                                 <Cell
@@ -213,6 +212,27 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
 
                         </PieChart>
                     )}
+
+                    {(type === "area") && (
+                        <AreaChart data={data} margin={{ top: 20, right: 20, left: 50, bottom: 80 }}>
+                            <XAxis dataKey={xKey}
+                            />
+                            <YAxis />
+                            <Tooltip />
+                            <Area type="monotone" dataKey={yKey} />
+                        </AreaChart>
+
+                    )}
+
+
+                    {(type === "scatter") && (
+                        <ScatterChart margin={{ top: 20, right: 20, left: 50, bottom: 80 }}>
+                        <XAxis dataKey={xKey} type="number" />
+                        <YAxis dataKey={yKey} type="number" />
+                        <Tooltip />
+                        <Scatter data={data} />
+                    </ScatterChart>)}
+
 
                 </ResponsiveContainer>
             </div>

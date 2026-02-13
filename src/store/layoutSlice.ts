@@ -3,7 +3,7 @@ export type Aggregation = "sum" | "avg" | "min" | "max" |"count";
 
 interface ChartState {
   enabled: boolean;
-  type: "bar" | "line" | "pie" | "pivot" | "";
+  type: "bar" | "line" | "pie" | "pivot" | "area" | "scatter" | "";
   x: string;
   y: string;
   agg: Aggregation
