@@ -30,6 +30,9 @@ export default function VisualizationPanel() {
           { icon: "📊", type: "bar" },
           { icon: "📈", type: "line" },
           { icon: "🥧", type: "pie" },
+          { icon: "🟦", type: "area" },
+          {icon:"🔵",type:"scatter"}
+
 
         ].map((i) => (
           <div
