@@ -15,7 +15,7 @@ export default function MainTable() {
     const selected = useSelector((s: RootState) => s.layout.columns);
     const allcol = useSelector((s: RootState) => s.data.columns);
     const layout = useSelector((s: RootState) => s.layout);
-    const [dimensions, setDimensions] = useState({ width: 1000, height: 900 });
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
     const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
     const resizingCol = useRef<string | null>(null);
     const startX = useRef(0);
@@ -85,6 +85,9 @@ export default function MainTable() {
         });
     }, [finalColumns]);
 
+    const CHART_HEIGHT = chart.enabled ? 420 : 0;
+
+
     //window resizer for table
     useEffect(() => {
         const updateDimensions = () => {
@@ -103,7 +106,7 @@ export default function MainTable() {
         window.addEventListener('resize', updateDimensions);
 
         return () => window.removeEventListener('resize', updateDimensions);
-    }, []);
+    }, [layout.columns]);
 
 
     //Similar to final columns , the finalrows stores the data based on pivot or normal table
@@ -182,25 +185,19 @@ export default function MainTable() {
 
     const isPivotMode = chart.type === "pivot" && pivotResult && pivotResult.length > 0;
 
-
-
-
-
-
-
     return (
 
         <div
             ref={containerRef}
-            className="flex flex-col gap-2 h-full border border-gray-400 "
+            className="flex flex-col gap-2 h-screen border border-gray-400  "
         >
+            <div className="flex-1 overflow-auto">
 
-            {!isPivotMode && chart.enabled && chartData.length > 0 && (
+                {!isPivotMode && chart.enabled && chartData.length > 0 && (
 
-                <div className="h-[420px] border-b bg-white p-3  flex flex-col">
+                    <div className="h-[420px] border-b bg-white p-3  ">
 
-                    {/* MAIN CHART */}
-                    <div className="flex-1 min-h-0">
+                        {/* MAIN CHART */}
 
                         <ChartPanel
                             data={chartData}
@@ -210,90 +207,89 @@ export default function MainTable() {
                             agg={chart.agg}
                         />
 
+
                     </div>
+                )}
 
-                </div>
-            )}
+                <div className="flex-1 overflow-auto border-t min-h-0">
 
-            <div className="flex-1 overflow-auto border-t">
+                    <Grid
+                        ref={gridRef}
+                        columnCount={finalColumns.length + 1}
+                        rowCount={finalRows.length + 1}
+                        columnWidth={getColumnWidth}
+                        rowHeight={getRowHeight}
+                        width={dimensions.width}
+                        height={Math.max(200, dimensions.height)}
+                    >
+                        {({ columnIndex, rowIndex, style }) => {
 
-                <Grid
-                    ref={gridRef}
-                    columnCount={finalColumns.length + 1}
-                    rowCount={finalRows.length + 1}
-                    columnWidth={getColumnWidth}
-                    rowHeight={getRowHeight}
-                    width={dimensions.width}
-                    height={dimensions.height}
-                >
-                    {({ columnIndex, rowIndex, style }) => {
+                            /* HEADER */
+                            if (rowIndex === 0) {
+                                if (columnIndex === 0) {
+                                    return (
+                                        <div
+                                            style={style}
+                                            className="border-b border-r bg-gray-100 font-semibold flex items-center justify-center"
+                                        >
+                                            #
+                                        </div>
+                                    );
+                                }
 
-                        /* HEADER */
-                        if (rowIndex === 0) {
-                            if (columnIndex === 0) {
                                 return (
                                     <div
                                         style={style}
-                                        className="border-b border-r bg-gray-100 font-semibold flex items-center justify-center"
+                                        className="border-b border-r bg-gray-100 font-semibold px-2 truncate relative"
                                     >
-                                        #
+                                        {finalColumns[columnIndex - 1]}
+
+                                        {/* Resize */}
+                                        <div
+                                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400"
+                                            onMouseDown={(e) => {
+                                                e.preventDefault();
+                                                startResize(e, finalColumns[columnIndex - 1]);
+                                            }}
+                                        />
                                     </div>
                                 );
                             }
 
-                            return (
-                                <div
-                                    style={style}
-                                    className="border-b border-r bg-gray-100 font-semibold px-2 truncate relative"
-                                >
-                                    {finalColumns[columnIndex - 1]}
-
-                                    {/* Resize */}
+                            /* INDEX */
+                            if (columnIndex === 0) {
+                                return (
                                     <div
-                                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400"
-                                        onMouseDown={(e) => {
-                                            e.preventDefault();
-                                            startResize(e, finalColumns[columnIndex - 1]);
-                                        }}
-                                    />
-                                </div>
-                            );
-                        }
+                                        style={style}
+                                        className="border-r border-b text-center"
+                                    >
+                                        {rowIndex}
+                                    </div>
+                                );
+                            }
 
-                        /* INDEX */
-                        if (columnIndex === 0) {
+                            /* DATA */
+                            const row = finalRows[rowIndex - 1];
+                            const col = finalColumns[columnIndex - 1];
+
                             return (
                                 <div
                                     style={style}
-                                    className="border-r border-b text-center"
+                                    className="border-r border-b px-2 truncate"
+                                    title={String(row[col] ?? "")}
                                 >
-                                    {rowIndex}
+                                    {row[col]}
                                 </div>
                             );
-                        }
-
-                        /* DATA */
-                        const row = finalRows[rowIndex - 1];
-                        const col = finalColumns[columnIndex - 1];
-
-                        return (
-                            <div
-                                style={style}
-                                className="border-r border-b px-2 truncate"
-                                title={String(row[col] ?? "")}
-                            >
-                                {row[col]}
-                            </div>
-                        );
-                    }}
-                </Grid>
+                        }}
+                    </Grid>
 
 
+                </div>
             </div>
 
-
-
         </div>
+
 
 
     );
