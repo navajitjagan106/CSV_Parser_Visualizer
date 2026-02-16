@@ -5,14 +5,7 @@ import ChartPanel from "./ChartPanel";
 import { groupDataAll } from "../utils/groupDataAll";
 import { useSelector } from "react-redux";
 import { pivotData } from "../utils/pivotData";
-import {
-  FiArrowUp,
-  FiArrowDown,
-  FiRefreshCw,
-  FiDownload,
-  FiSearch,
-  FiX
-} from "react-icons/fi";
+
 
 
 const ROW_HEIGHT = 35;
@@ -23,17 +16,18 @@ export default function MainTable() {
     const selected = useSelector((s: RootState) => s.layout.columns);
     const allcol = useSelector((s: RootState) => s.data.columns);
     const layout = useSelector((s: RootState) => s.layout);
+    const chart = useSelector((s: RootState) => s.layout.chart);
+
+
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
     const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
     const resizingCol = useRef<string | null>(null);
     const startX = useRef(0);
     const gridRef = useRef<Grid>(null);
-    const chart = useSelector((s: RootState) => s.layout.chart);
     const [sortConfig, setSortConfig] = useState<{
         column: string | null;
         direction: 'asc' | 'desc' | null;
     }>({ column: null, direction: null });
-
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [filterText, setFilterText] = useState('');
     const [showFilterInput, setShowFilterInput] = useState(false);
@@ -42,7 +36,8 @@ export default function MainTable() {
 
     //if pivot selected memo will get pivot data from redux and store as pivot result or stores null
     const pivotResult = useMemo(() => {
-        if (chart.type !== "pivot") return null;
+        if (!layout.pivot.enabled) return null;
+
         return pivotData(
             data,
             layout.pivot.row,
@@ -50,7 +45,7 @@ export default function MainTable() {
             layout.pivot.value,
             layout.pivot.agg
         );
-    }, [data, layout.pivot, chart.type]);
+    }, [data, layout.pivot]);
 
 
     // memo function to calculate data for charts
@@ -76,11 +71,11 @@ export default function MainTable() {
 
     //another memo function which checks whether pivot is selected , storees pivot columns or the original selected columns
     const finalColumns = useMemo(() => {
-        if (chart.type === "pivot" && pivotResult?.length) {
+        if (pivotResult?.length) {
             return Object.keys(pivotResult[0]);
         }
         return columns;
-    }, [chart.type, pivotResult, columns]);
+    }, [pivotResult, columns]);
 
     //Calculates column widths for each column 
     useEffect(() => {
@@ -117,13 +112,17 @@ export default function MainTable() {
     }, [layout.columns]);
 
 
+    const chartEnabled =
+        Boolean(chart.type && chart.x && chart.y);
+
+
     //Similar to final columns , the finalrows stores the data based on pivot or normal table
     const finalRows = useMemo(() => {
-        if (chart.type === "pivot" && pivotResult) {
+        if (pivotResult?.length) {
             return pivotResult;
         }
         return data;
-    }, [chart.type, pivotResult, data]);
+    }, [pivotResult, data]);
 
 
 
@@ -259,7 +258,7 @@ export default function MainTable() {
     }, [onResize]);
 
 
-    const isPivotMode = chart.type === "pivot" && pivotResult && pivotResult.length > 0;
+    const isPivotMode = layout.pivot.enabled
 
     if (!data.length)
         return (
@@ -284,7 +283,7 @@ export default function MainTable() {
         >
             <div className="flex-1 overflow-auto scrollbar-hide">
 
-                {!isPivotMode && chart.enabled && chartData.length > 0 && (
+                {chartEnabled && chartData.length > 0 && (
 
                     <div className="h-[420px] border-b bg-white p-3  ">
 
@@ -441,12 +440,9 @@ export default function MainTable() {
                         }}
                     </Grid>
 
-
                 </div>
             </div>
-
         </div>
     );
 
 }
-
