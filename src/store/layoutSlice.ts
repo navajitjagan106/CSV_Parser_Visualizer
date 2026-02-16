@@ -2,8 +2,8 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 export type Aggregation = "sum" | "avg" | "min" | "max" | "count";
 
 interface ChartState {
-  enabled: boolean;
-  type: "bar" | "line" | "pie" | "pivot" | "area" | "scatter" | "";
+  //enabled: boolean;
+  type: "bar" | "line" | "pie" | "area" | "scatter" | "";
   x: string;
   y: string;
   agg: Aggregation
@@ -27,7 +27,7 @@ const initialState: LayoutState = {
   columns: [],
   version: 0,
   chart: {
-    enabled: false,
+    //enabled: false,
     type: "",
     x: "",
     y: "",
@@ -89,8 +89,7 @@ const layoutSlice = createSlice({
         agg: "sum",
       };
 
-      state.chart.type = "";
-      state.chart.enabled = false;
+  
     },
 
     reorderColumns: (state, action) => {
@@ -104,6 +103,12 @@ const layoutSlice = createSlice({
       state.version++; // force re-render
     },
 
+    selectAllColumns(state, action) {
+  state.columns = action.payload;
+  state.version++;
+},
+
+
     resetColumnsFromAll: (state, action:PayloadAction<string[]>) => {
       const allcol = action.payload;
       // Keep only selected ones, but in original order
@@ -115,7 +120,7 @@ const layoutSlice = createSlice({
 
     clearChart(state) {
       state.chart = {
-        enabled: false,
+       // enabled: false,
         type: "",
         x: "",
         y: "",
@@ -135,6 +140,7 @@ export const {
   clearPivot,
   reorderColumns,
   resetColumnsFromAll,
+  selectAllColumns
 } = layoutSlice.actions;
 
 export default layoutSlice.reducer;

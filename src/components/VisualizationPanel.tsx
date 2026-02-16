@@ -1,5 +1,5 @@
 import { RootState } from '../store/store'
-import { selectColumn, reorderColumns, resetColumnsFromAll } from '../store/layoutSlice'
+import { selectColumn, reorderColumns, resetColumnsFromAll, togglePivot } from '../store/layoutSlice'
 import { useDispatch, useSelector } from 'react-redux';
 import PivotControls from "./PivotControls";
 import { setChart, clearChart } from "../store/layoutSlice";
@@ -30,13 +30,15 @@ export default function VisualizationPanel() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const chartItems: ChartItem[] = [
-  { icon: FiBarChart2, type: "bar", label: "Bar" },
-  { icon: FiTrendingUp, type: "line", label: "Line" },
-  { icon: FiPieChart, type: "pie", label: "Pie" },
-  { icon: FiActivity, type: "area", label: "Area" },
-  { icon: LuChartScatter, type: "scatter", label: "Scatter" },
-];
+    { icon: FiBarChart2, type: "bar", label: "Bar" },
+    { icon: FiTrendingUp, type: "line", label: "Line" },
+    { icon: FiPieChart, type: "pie", label: "Pie" },
+    { icon: FiActivity, type: "area", label: "Area" },
+    { icon: LuChartScatter, type: "scatter", label: "Scatter" },
+  ];
 
+  const chartEnabled =
+    Boolean(chart.type || chart.x || chart.y);
 
   const columns = useMemo(() => {
 
@@ -62,107 +64,111 @@ export default function VisualizationPanel() {
       <div className="grid grid-cols-3 gap-2 text-center text-xs">
 
 
- {chartItems.map((i) => {
-  const Icon = i.icon;
+        {chartItems.map((i) => {
+          const Icon = i.icon;
 
-  return (
-    <div
-      key={i.type}
-      title={i.label}
-      className={`flex items-center justify-center gap-1 border rounded-md px-3 py-2 cursor-pointer text-sm
-        ${
-          chart.type === i.type
-            ? "bg-blue-500 text-white border-blue-500"
-            : "bg-white hover:bg-gray-100"
-        }`}
-      onClick={() => {
-        dispatch(
-          setChart({
-            type: i.type as any,
-            enabled: true,
-          })
-        );
-      }}
-    >
-      <span className="text-lg">
-        <Icon />
-      </span>
+          return (
+            <div
+              key={i.type}
+              title={i.label}
+              className={`flex items-center justify-center gap-1 border rounded-md px-3 py-2 cursor-pointer text-sm
+        ${chart.type === i.type
+                  ? "bg-blue-500 text-white border-blue-500"
+                  : "bg-white hover:bg-gray-100"
+                }`}
+              onClick={() => {
+                dispatch(
+                  setChart({
+                    type: i.type as any,
+                  })
+                );
+              }}
+            >
+              <span className="text-lg">
+                <Icon />
+              </span>
 
-      <span className="text-[9px] font-medium">{i.label}</span>
-    </div>
-  );
-})}
+              <span className="text-[9px] font-medium">{i.label}</span>
+            </div>
+          );
+        })}
 
 
       </div>
 
-      {chart.type && chart.type !== "pivot" && (
+      {chartEnabled && (
         <div>
-          <label className="text-xs font-semibold text-gray-600 block mb-1">Aggregation</label>
-          <select
-            className="w-full border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
-            value={chart.agg}
-            onChange={(e) => {
-              const value = e.target.value as Aggregation;
-              dispatch(
-                setChart({
-                  agg: value,
-                  enabled: Boolean(chart.x && chart.y),
-                }),
-
-              )
-            }}
-          >
-            <option value="sum">Σ Sum</option>
-            <option value="avg">μ Average</option>
-            <option value="min">↓ Minimum</option>
-            <option value="max">↑ Maximum</option>
-            <option value="count"># Count</option>
-          </select>
-        </div>
-      )}
-
-
-      {/* Axis Selection */}
-      {chart.type && chart.type !== "pivot" && (
-        <div className="space-y-2 text-sm">
           <div>
-            <label className="text-xs font-semibold text-gray-600 block mb-1">X-Axis (Categories)</label>
+            <label className="text-xs font-semibold text-gray-600 block mb-1">Aggregation</label>
             <select
               className="w-full border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              value={chart.x}
-              onChange={(e) => dispatch(setChart({ x: e.target.value, enabled: Boolean(e.target.value && chart.y), }))
-              }
+              value={chart.agg}
+              onChange={(e) => {
+                const value = e.target.value as Aggregation;
+                dispatch(
+                  setChart({
+                    agg: value,
+                  }),
+
+                )
+              }}
             >
-              <option value="">Select X Axis</option>
-              {columns.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
+              <option value="sum">Σ Sum</option>
+              <option value="avg">μ Average</option>
+              <option value="min">↓ Minimum</option>
+              <option value="max">↑ Maximum</option>
+              <option value="count"># Count</option>
+              <option value="countDistinct">Unique Count</option>
+              <option value="median">Median</option>
+              <option value="percent">% of Total</option>
+
             </select>
           </div>
 
-          <div>
-            <label className="text-xs font-semibold text-gray-600 block mb-1">Y-Axis (Values)</label>
 
-            <select
-              className="w-full border rounded p-1"
-              value={chart.y}
-              onChange={(e) => dispatch(setChart({ y: e.target.value, enabled: Boolean(chart.x && e.target.value), }))
-              }>
-              <option value="">Select Y Axis</option>
-              {columns.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
+
+          {/* Axis Selection */}
+
+          <div className="space-y-2 text-sm">
+            <div>
+              <label className="text-xs font-semibold text-gray-600 block mb-1">X-Axis (Categories)</label>
+              <select
+                className="w-full border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                value={chart.x}
+                onChange={(e) => dispatch(setChart({ x: e.target.value }))
+                }
+              >
+                <option value="">Select X Axis</option>
+                {columns.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-gray-600 block mb-1">Y-Axis (Values)</label>
+
+              <select
+                className="w-full border rounded p-1"
+                value={chart.y}
+                onChange={(e) => dispatch(setChart({ y: e.target.value, }))
+                }>
+                <option value="">Select Y Axis</option>
+                {columns.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={() => dispatch(clearChart())}
+              className="w-full rounded-md bg-red-500 text-white text-xs py-1 hover:bg-red-600">
+              ✕ Remove
+            </button>
+
           </div>
-
-          <button
-            onClick={() => dispatch(clearChart())}
-            className="w-full rounded-md bg-red-500 text-white text-xs py-1 hover:bg-red-600">
-            ✕ Remove
-          </button>
-
-        </div>)}
+        </div>
+      )}
 
       <div className="border-t my-4"></div>
 
@@ -172,29 +178,22 @@ export default function VisualizationPanel() {
       </p>
       {/* Separate Pivot Button */}
       <div
-        className={`flex items-center justify-center gap-2 border rounded-md px-3 py-2 cursor-pointer text-sm
-        ${chart.type === "pivot"
+        className={`flex items-center justify-center gap-2 border rounded-md px-3 py-2 cursor-pointer text-sm 
+           ${pivot.enabled
             ? "bg-blue-500 text-white border-blue-500"
             : "bg-white hover:bg-gray-100"}
         `}
         onClick={() => {
-          dispatch(
-            setChart({
-              type: "pivot",
-              enabled: false,
-              x: "",
-              y: "",
-            })
-          );
+          dispatch(togglePivot());
         }}
       >
         📑 Pivot Table
       </div>
 
       {/* Pivot Controls */}
-      {(chart.type === "pivot" || pivot.enabled) && (
-        <PivotControls />
-      )}
+
+      {pivot.enabled && <PivotControls />}
+
 
       <div className="border-t my-4"></div>
 
@@ -216,14 +215,14 @@ export default function VisualizationPanel() {
             Fields
           </p>
           {selected.length > 0 && (
-             <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
               <button
-              className="text-[10px] text-blue-600 hover:text-blue-700 font-medium"
-              onClick={() => {
-                dispatch(resetColumnsFromAll(allcol))
-              }}>
-              Reset
-            </button>
+                className="text-[10px] text-blue-600 hover:text-blue-700 font-medium"
+                onClick={() => {
+                  dispatch(resetColumnsFromAll(allcol))
+                }}>
+                Reset
+              </button>
               <button
                 onClick={() => {
                   selected.forEach(col => dispatch(selectColumn(col)));
@@ -275,7 +274,7 @@ export default function VisualizationPanel() {
 
       </div>
 
-            <div className="border-t my-4"></div>
+      <div className="border-t my-4"></div>
 
 
     </div>
