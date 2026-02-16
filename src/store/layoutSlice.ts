@@ -16,11 +16,28 @@ interface PivotState {
   agg: Aggregation
 }
 
+interface TopNState {
+  enabled: boolean;
+  column: string;
+  count: number;
+  order: "top" | "bottom";
+}
+
+
 interface LayoutState {
   columns: string[];
   version: number;
   chart: ChartState;
   pivot: PivotState
+  filters: Record<string, string[]>; // ✅ ADD THIS
+  filtersRange: Record<
+    string,
+    { min: number; max: number }
+  >;
+  rangeCol: string;
+
+  topN: TopNState;
+
 }
 
 const initialState: LayoutState = {
@@ -40,6 +57,15 @@ const initialState: LayoutState = {
     value: "",
     agg: "sum",
   },
+  topN: {
+    enabled: false,
+    column: "",
+    count: 10,
+    order: "top",
+  },
+  filters: {}, // ✅ ADD THIS
+  filtersRange: {},
+  rangeCol: "",
 
 };
 
@@ -89,7 +115,7 @@ const layoutSlice = createSlice({
         agg: "sum",
       };
 
-  
+
     },
 
     reorderColumns: (state, action) => {
@@ -100,16 +126,16 @@ const layoutSlice = createSlice({
       updated.splice(to, 0, moved);
 
       state.columns = updated;
-      state.version++; // force re-render
+      state.version++;
     },
 
     selectAllColumns(state, action) {
-  state.columns = action.payload;
-  state.version++;
-},
+      state.columns = action.payload;
+      state.version++;
+    },
 
 
-    resetColumnsFromAll: (state, action:PayloadAction<string[]>) => {
+    resetColumnsFromAll: (state, action: PayloadAction<string[]>) => {
       const allcol = action.payload;
       // Keep only selected ones, but in original order
       state.columns = allcol.filter(c =>
@@ -120,13 +146,56 @@ const layoutSlice = createSlice({
 
     clearChart(state) {
       state.chart = {
-       // enabled: false,
+        // enabled: false,
         type: "",
         x: "",
         y: "",
         agg: "sum"
       };
     },
+
+    setFilter(state, action) {
+      const { column, values } = action.payload;
+      state.filters[column] = values;
+    },
+
+    setTopN(state, action) {
+      state.topN = {
+        ...state.topN,
+        ...action.payload,
+        enabled: true,
+      };
+    },
+
+    clearTopN(state) {
+      state.topN.enabled = false;
+    },
+setRangeColumn(state, action: PayloadAction<string>) {
+  const col = action.payload;
+
+  state.rangeCol = col;
+
+  // Auto-create range when column selected
+  if (col && !state.filtersRange[col]) {
+    state.filtersRange[col] = {
+      min: 0,
+      max: 100000, // default range
+    };
+  }
+},
+
+
+    setRangeFilter(state, action) {
+      const { column, min, max } = action.payload;
+
+      state.filtersRange[column] = { min, max };
+    },
+
+    clearRangeFilter(state, action) {
+      delete state.filtersRange[action.payload];
+    },
+
+
   },
 });
 
@@ -140,7 +209,10 @@ export const {
   clearPivot,
   reorderColumns,
   resetColumnsFromAll,
-  selectAllColumns
+  selectAllColumns,
+  setTopN,setRangeColumn,
+  clearTopN,
+  setFilter,setRangeFilter,clearRangeFilter
 } = layoutSlice.actions;
 
 export default layoutSlice.reducer;

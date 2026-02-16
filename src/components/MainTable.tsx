@@ -34,12 +34,55 @@ export default function MainTable() {
 
 
 
+const filteredBaseData = useMemo(() => {
+  let result = [...data];
+
+  /* ================= RANGE FILTER ================= */
+  if (layout.rangeCol && layout.filtersRange?.[layout.rangeCol]) {
+    const { min, max } = layout.filtersRange[layout.rangeCol];
+
+    result = result.filter(row => {
+      const val = Number(row[layout.rangeCol]);
+
+      if (isNaN(val)) return false;
+
+      return val >= min && val <= max;
+    });
+  }
+
+  /* ================= TOP N FILTER ================= */
+  if (layout.topN.enabled && layout.topN.column) {
+    const col = layout.topN.column;
+
+    result = result
+      .filter(r => !isNaN(Number(r[col])))
+      .sort((a, b) => {
+        const av = Number(a[col]);
+        const bv = Number(b[col]);
+
+        return layout.topN.order === "top"
+          ? bv - av
+          : av - bv;
+      })
+      .slice(0, layout.topN.count);
+  }
+
+  return result;
+}, [
+  data,
+  layout.rangeCol,
+  layout.filtersRange,
+  layout.topN,
+]);
+
+
+
     //if pivot selected memo will get pivot data from redux and store as pivot result or stores null
     const pivotResult = useMemo(() => {
         if (!layout.pivot.enabled) return null;
 
         return pivotData(
-            data,
+            filteredBaseData,
             layout.pivot.row,
             layout.pivot.column,
             layout.pivot.value,
@@ -52,8 +95,11 @@ export default function MainTable() {
     const allChartData = useMemo(() => {
         if (!chart.x || !chart.y) return null;
 
-        return groupDataAll(data, chart.x, chart.y);
-    }, [data, chart.x, chart.y]);
+        return groupDataAll(filteredBaseData, chart.x, chart.y);
+    }, [filteredBaseData, chart.x, chart.y]);
+
+
+
 
     //data for chartss
     const chartData = allChartData
@@ -89,7 +135,7 @@ export default function MainTable() {
             });
             return init;
         });
-    }, [finalColumns]);
+    }, [finalColumns, columns]);
 
 
     //window resizer for table
@@ -121,8 +167,8 @@ export default function MainTable() {
         if (pivotResult?.length) {
             return pivotResult;
         }
-        return data;
-    }, [pivotResult, data]);
+        return filteredBaseData;
+    }, [pivotResult, filteredBaseData]);
 
 
 
@@ -258,7 +304,6 @@ export default function MainTable() {
     }, [onResize]);
 
 
-    const isPivotMode = layout.pivot.enabled
 
     if (!data.length)
         return (
@@ -296,8 +341,6 @@ export default function MainTable() {
                             type={chart.type}
                             agg={chart.agg}
                         />
-
-
                     </div>
                 )}
 
@@ -365,6 +408,26 @@ export default function MainTable() {
                             </button>
                         )}
                     </div>
+
+                    {/* ✅ ADD THIS ROW COUNT DISPLAY */}
+                    <div className="flex items-center justify-between px-3 py-2 bg-blue-50 border-b text-xs">
+                        <div className="flex items-center gap-4">
+                            <span className="text-gray-600">
+                                📊 Showing <span className="font-semibold text-blue-600">{filteredRows.length}</span> of <span className="font-semibold">{finalRows.length}</span> rows
+                            </span>
+
+                            {filteredRows.length !== finalRows.length && (
+                                <span className="text-orange-600 font-medium">
+                                    (Filtered)
+                                </span>
+                            )}
+                        </div>
+
+                        <div className="text-gray-500">
+                            {finalColumns.length} columns selected
+                        </div>
+                    </div>
+
 
                     <Grid
                         ref={gridRef}
