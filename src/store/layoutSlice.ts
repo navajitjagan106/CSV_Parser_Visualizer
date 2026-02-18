@@ -34,9 +34,9 @@ interface LayoutState {
     { min: number; max: number }
   >;
   rangeCol: string;
-
   topN: TopNState;
-
+  multiSelectFilters: Record<string, string[]>;
+  nullFilters: Record<string, 'show' | 'hide'>; 
 }
 
 const initialState: LayoutState = {
@@ -62,10 +62,11 @@ const initialState: LayoutState = {
     count: 10,
     order: "top",
   },
-  filters: {}, 
+  filters: {},
   filtersRange: {},
   rangeCol: "",
-
+  multiSelectFilters: {},
+  nullFilters:{},
 };
 
 const layoutSlice = createSlice({
@@ -77,7 +78,7 @@ const layoutSlice = createSlice({
 
       if (state.columns.includes(col)) {
         state.columns = state.columns.filter(c => c !== col);
-        state.chart.x=""
+        state.chart.x = ""
       } else {
         state.columns.push(col);
       }
@@ -166,18 +167,18 @@ const layoutSlice = createSlice({
     clearTopN(state) {
       state.topN.enabled = false;
     },
-setRangeColumn(state, action: PayloadAction<string>) {
-  const col = action.payload;
+    setRangeColumn(state, action: PayloadAction<string>) {
+      const col = action.payload;
 
-  state.rangeCol = col;
+      state.rangeCol = col;
 
-  if (col && !state.filtersRange[col]) {
-    state.filtersRange[col] = {
-      min: 0,
-      max: 100000, 
-    };
-  }
-},
+      if (col && !state.filtersRange[col]) {
+        state.filtersRange[col] = {
+          min: 0,
+          max: 100000,
+        };
+      }
+    },
 
 
     setRangeFilter(state, action) {
@@ -189,25 +190,29 @@ setRangeColumn(state, action: PayloadAction<string>) {
     clearRangeFilter(state, action) {
       delete state.filtersRange[action.payload];
     },
+    setMultiSelectFilter(state, action: PayloadAction<{ column: string; values: string[] }>) {
+      state.multiSelectFilters[action.payload.column] = action.payload.values
+    },
+    clearMultiSelectFilter(state, action: PayloadAction<string>) {
+      delete state.multiSelectFilters[action.payload]
+    },
+    clearAllMultiSelectFilter(state) {
+      state.multiSelectFilters = {}
+    },
+    setNullFilter: (state, action: PayloadAction<{ column: string; mode: 'show' | 'hide' }>) => {
+  state.nullFilters[action.payload.column] = action.payload.mode;
+},
+clearNullFilter: (state, action: PayloadAction<string>) => {
+  delete state.nullFilters[action.payload];
+},
 
 
   },
 });
 
 export const {
-  selectColumn,
-  clearColumn,
-  setChart,
-  clearChart,
-  setPivot,
-  togglePivot,
-  clearPivot,
-  reorderColumns,
-  resetColumnsFromAll,
-  selectAllColumns,
-  setTopN,setRangeColumn,
-  clearTopN,
-  setFilter,setRangeFilter,clearRangeFilter
+  selectColumn, clearColumn, setChart, clearChart, setPivot, togglePivot, clearPivot, reorderColumns, resetColumnsFromAll, selectAllColumns, setTopN, setRangeColumn,
+  clearTopN, setFilter, setRangeFilter, clearRangeFilter, setMultiSelectFilter, clearAllMultiSelectFilter, clearMultiSelectFilter,setNullFilter,clearNullFilter,
 } = layoutSlice.actions;
 
 export default layoutSlice.reducer;

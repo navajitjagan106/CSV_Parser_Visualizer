@@ -8,9 +8,6 @@ import TableToolbar from './TableComponents/TableToolbar';
 import TableGrid from './TableComponents/TableGrid';
 import TableStatus from './TableComponents/TableStatus';
 
-
-
-
 export default function MainTable() {
     const containerRef = useRef<HTMLDivElement>(null);//ref to the entire container for height & width size refactoring
     const data = useSelector((s: RootState) => s.data.rows);//selecting the actual data from redux
@@ -33,7 +30,7 @@ export default function MainTable() {
     const filteredBaseData = useMemo(() => {
         let result = [...data];
         /*  RANGE FILTER  */
-        if (layout.rangeCol && layout.filtersRange?.[layout.rangeCol]) {
+        if (layout.rangeCol && selected.includes(layout.rangeCol) && layout.filtersRange?.[layout.rangeCol]) {
             const { min, max } = layout.filtersRange[layout.rangeCol];
             result = result.filter(row => {
                 const val = Number(row[layout.rangeCol]);
@@ -42,7 +39,7 @@ export default function MainTable() {
             });
         }
         /*  TOP N FILTER  */
-        if (layout.topN.enabled && layout.topN.column) {
+        if (layout.topN.enabled && layout.topN.column && selected.includes(layout.topN.column)) {
             const col = layout.topN.column;
             result = result
                 .filter(r => !isNaN(Number(r[col])))
@@ -55,18 +52,37 @@ export default function MainTable() {
                 })
                 .slice(0, layout.topN.count);
         }
+        const multiFilters = layout.multiSelectFilters || {};
+        Object.entries(multiFilters).forEach(([col, vals]) => {
+            if (vals.length > 0 && selected.includes(col)) {
+                result = result.filter(row => vals.includes(String(row[col] ?? '')));
+            }
+        });
+
+        // NULL FILTER
+        const nullFilters = layout.nullFilters || {};
+        Object.entries(nullFilters).forEach(([col, mode]) => {
+            if (!selected.includes(col)) return;
+            if (mode === 'show') {
+                // show only empty rows
+                result = result.filter(row => {
+                    const val = row[col];
+                    return val === null || val === undefined || String(val).trim() === '';
+                });
+            } else if (mode === 'hide') {
+                // hide empty rows
+                result = result.filter(row => {
+                    const val = row[col];
+                    return val !== null && val !== undefined && String(val).trim() !== '';
+                });
+            }
+        });
         return result;
-    }, [
-        data,
-        layout.rangeCol,
-        layout.filtersRange,
-        layout.topN,
-    ]);
+    }, [data, layout.rangeCol, layout.filtersRange, layout.topN, layout.multiSelectFilters,layout.nullFilters, selected,]);
 
     //if pivot selected memo will get pivot data from redux and store as pivot result or stores null
     const pivotResult = useMemo(() => {
         if (!layout.pivot.enabled) return null;
-
         return pivotData(
             filteredBaseData,
             layout.pivot.row,
@@ -74,20 +90,16 @@ export default function MainTable() {
             layout.pivot.value,
             layout.pivot.agg
         );
-    }, [data, layout.pivot]);
-
+    }, [filteredBaseData, layout.pivot]);
 
     // memo function to calculate data for charts 
     const allChartData = useMemo(() => {
         if (!chart.x || !chart.y) return null;
-
         return groupDataAll(filteredBaseData, chart.x, chart.y);
     }, [filteredBaseData, chart.x, chart.y]);
 
     //data for chartss
-    const chartData = allChartData
-        ? allChartData[chart.agg]
-        : [];
+    const chartData = allChartData ? allChartData[chart.agg] : [];
 
     //Sorting Column name for Table based on selected column names
     const columns = useMemo(() => {
@@ -134,7 +146,6 @@ export default function MainTable() {
         window.addEventListener('resize', updateDimensions);
         return () => window.removeEventListener('resize', updateDimensions);
     }, [layout.columns]);
-
 
     const chartEnabled = Boolean(chart.type && chart.x && chart.y);//boolean varable to chk chart is on or not
 

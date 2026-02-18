@@ -71,8 +71,6 @@ export default function ChartControls  () {
                     </div>
                   );
                 })}
-        
-        
               </div>
         
               {/*Other sub fields such xvalue yvalue and agg */}
@@ -89,7 +87,6 @@ export default function ChartControls  () {
                           setChart({
                             agg: value,
                           }),
-        
                         )
                       }}
                     >
@@ -143,11 +140,9 @@ export default function ChartControls  () {
                       className="w-full rounded-md bg-red-500 text-white text-xs py-1 hover:bg-red-600">
                       ✕ Remove
                     </button>
-        
                   </div>
                 </div>
               )}
-        
     </div>
   )
 }

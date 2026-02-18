@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store/store';
-import { selectColumn, resetColumnsFromAll, reorderColumns, setChart, setPivot, togglePivot, clearRangeFilter, setRangeColumn, clearTopN } from '../../store/layoutSlice';
+import { selectColumn, resetColumnsFromAll, reorderColumns, setChart, togglePivot, clearRangeFilter, setRangeColumn, clearTopN } from '../../store/layoutSlice';
 
 export default function FieldsPanel() {
     const dispatch = useDispatch()
