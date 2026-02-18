@@ -1,42 +1,24 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../store/store";
 import { setPivot } from "../../store/layoutSlice";
 import { clearPivot } from "../../store/layoutSlice";
-
+import { Aggregation } from "../../store/layoutSlice";
 
 export default function PivotControls() {
   const dispatch = useDispatch();
   const selected = useSelector((s: RootState) => s.layout.columns);
   const pivot = useSelector((s: RootState) => s.layout.pivot);
   const allcol = useSelector((s: RootState) => s.data.columns)
-  const [row, setRow] = useState(pivot.row);
-  const [column, setColumn] = useState(pivot.column);
-  const [value, setValue] = useState(pivot.value);
-  const [agg, setAgg] = useState(pivot.agg);
-
 
   const columns = useMemo(() => {
     if (!selected.length) return [];
     return allcol.filter(c => selected.includes(c));
   }, [selected, allcol]);
 
-  const applyPivot = () => {
-    if (!row || !column || !value) {
-      alert("Please select Row, Column and Value");
-      return;
-    }
-
-    dispatch(
-      setPivot({
-        enabled: true,
-        row,
-        column,
-        value,
-        agg,
-      })
-    );
-  };
+  const row = columns.includes(pivot.row) ? pivot.row : '';
+  const column = columns.includes(pivot.column) ? pivot.column : '';
+  const value = columns.includes(pivot.value) ? pivot.value : '';
 
   return (
     <div className="bg-gray-50 border rounded p-3 text-sm space-y-2">
@@ -51,7 +33,7 @@ export default function PivotControls() {
         </label>
         <select
           value={row}
-          onChange={(e) => setRow(e.target.value)}
+          onChange={(e) => dispatch(setPivot({ ...pivot, row: e.target.value }))}
           className="w-full border rounded px-2 py-1"
         >
           <option value="">Select</option>
@@ -70,9 +52,8 @@ export default function PivotControls() {
         </label>
         <select
           value={column}
-          onChange={(e) => setColumn(e.target.value)}
-          className="w-full border rounded px-2 py-1"
-        >
+          onChange={(e) => dispatch(setPivot({ ...pivot, column: e.target.value }))}
+          className="w-full border rounded px-2 py-1">
           <option value="">Select</option>
           {columns.map((c) => (
             <option key={c} value={c}>
@@ -89,9 +70,8 @@ export default function PivotControls() {
         </label>
         <select
           value={value}
-          onChange={(e) => setValue(e.target.value)}
-          className="w-full border rounded px-2 py-1"
-        >
+          onChange={(e) => dispatch(setPivot({ ...pivot, value: e.target.value }))}
+          className="w-full border rounded px-2 py-1">
           <option value="">Select</option>
           {columns.map((c) => (
             <option key={c} value={c}>
@@ -107,8 +87,8 @@ export default function PivotControls() {
           Aggregation
         </label>
         <select
-          value={agg}
-          onChange={(e) => setAgg(e.target.value as any)}
+          value={pivot.agg}
+          onChange={(e) => dispatch(setPivot({ ...pivot, agg: e.target.value as Aggregation }))}
           className="w-full border rounded px-2 py-1"
         >
           <option value="sum">Sum</option>
@@ -118,14 +98,7 @@ export default function PivotControls() {
           <option value="count">Count</option>
         </select>
       </div>
-
-      {/* APPLY */}
-      <button
-        onClick={applyPivot}
-        className="w-full bg-blue-500 hover:bg-blue-600 text-white py-1.5 rounded text-sm"
-      >
-        Apply Pivot
-      </button>
+     
       <button
         onClick={() => dispatch(clearPivot())}
         className="w-full bg-red-500 hover:bg-red-600 text-white py-1.5 rounded text-sm mt-2"
