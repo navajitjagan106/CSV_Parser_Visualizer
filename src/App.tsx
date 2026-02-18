@@ -1,10 +1,10 @@
 import Papa from "papaparse";
 import { useDispatch} from "react-redux";
 import { setData, clearData } from "./store/dataSlice";
-import DataPanel from "./components/DataPanel";
+import DataPanel from "./components/Panels/DataPanel";
 import MainTable from "./components/MainTable";
 import { clearColumn} from "./store/layoutSlice";
-import VisualisationPanel from "./components/VisualizationPanel";
+import VisualisationPanel from "./components/Panels/VisualizationPanel";
 import { useRef, useState } from "react";
 
 

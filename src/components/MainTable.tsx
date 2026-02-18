@@ -1,81 +1,67 @@
-import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { RootState } from '../store/store';
-import { VariableSizeGrid as Grid } from "react-window";
-import ChartPanel from "./ChartPanel";
+import ChartPanel from "./Panels/ChartPanel";
 import { groupDataAll } from "../utils/groupDataAll";
 import { useSelector } from "react-redux";
 import { pivotData } from "../utils/pivotData";
+import TableToolbar from './TableComponents/TableToolbar';
+import TableGrid from './TableComponents/TableGrid';
+import TableStatus from './TableComponents/TableStatus';
 
 
 
-const ROW_HEIGHT = 35;
 
 export default function MainTable() {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const data = useSelector((s: RootState) => s.data.rows);
-    const selected = useSelector((s: RootState) => s.layout.columns);
-    const allcol = useSelector((s: RootState) => s.data.columns);
-    const layout = useSelector((s: RootState) => s.layout);
-    const chart = useSelector((s: RootState) => s.layout.chart);
+    const containerRef = useRef<HTMLDivElement>(null);//ref to the entire container for height & width size refactoring
+    const data = useSelector((s: RootState) => s.data.rows);//selecting the actual data from redux
+    const selected = useSelector((s: RootState) => s.layout.columns);// selected the selected column fields from the redux
+    const allcol = useSelector((s: RootState) => s.data.columns);//selecting the entirity of the columns from the redux
+    const layout = useSelector((s: RootState) => s.layout);//selection the layout for accesing the filter objects
+    const chart = useSelector((s: RootState) => s.layout.chart);//selecting the chart object for accesing its data
 
-
-    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
-    const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
-    const resizingCol = useRef<string | null>(null);
-    const startX = useRef(0);
-    const gridRef = useRef<Grid>(null);
-    const [sortConfig, setSortConfig] = useState<{
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });//to set dimensions for the grid acc to window size
+    const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});//varibale colimn width like excel
+    const [sortCol, setSortCol] = useState('');//selecting a column using which we can ssort stuff
+    const [sortConfig, setSortConfig] = useState<{   //asc or desc
         column: string | null;
         direction: 'asc' | 'desc' | null;
     }>({ column: null, direction: null });
-    const [showExportMenu, setShowExportMenu] = useState(false);
-    const [filterText, setFilterText] = useState('');
-    const [showFilterInput, setShowFilterInput] = useState(false);
+    const [filterText, setFilterText] = useState(''); // for text filtering
 
 
-
-const filteredBaseData = useMemo(() => {
-  let result = [...data];
-
-  /* ================= RANGE FILTER ================= */
-  if (layout.rangeCol && layout.filtersRange?.[layout.rangeCol]) {
-    const { min, max } = layout.filtersRange[layout.rangeCol];
-
-    result = result.filter(row => {
-      const val = Number(row[layout.rangeCol]);
-
-      if (isNaN(val)) return false;
-
-      return val >= min && val <= max;
-    });
-  }
-
-  /* ================= TOP N FILTER ================= */
-  if (layout.topN.enabled && layout.topN.column) {
-    const col = layout.topN.column;
-
-    result = result
-      .filter(r => !isNaN(Number(r[col])))
-      .sort((a, b) => {
-        const av = Number(a[col]);
-        const bv = Number(b[col]);
-
-        return layout.topN.order === "top"
-          ? bv - av
-          : av - bv;
-      })
-      .slice(0, layout.topN.count);
-  }
-
-  return result;
-}, [
-  data,
-  layout.rangeCol,
-  layout.filtersRange,
-  layout.topN,
-]);
-
-
+    //find the data after filters are applied and use them
+    const filteredBaseData = useMemo(() => {
+        let result = [...data];
+        /*  RANGE FILTER  */
+        if (layout.rangeCol && layout.filtersRange?.[layout.rangeCol]) {
+            const { min, max } = layout.filtersRange[layout.rangeCol];
+            result = result.filter(row => {
+                const val = Number(row[layout.rangeCol]);
+                if (isNaN(val)) return false;
+                return val >= min && val <= max;
+            });
+        }
+        /*  TOP N FILTER  */
+        if (layout.topN.enabled && layout.topN.column) {
+            const col = layout.topN.column;
+            result = result
+                .filter(r => !isNaN(Number(r[col])))
+                .sort((a, b) => {
+                    const av = Number(a[col]);
+                    const bv = Number(b[col]);
+                    return layout.topN.order === "top"
+                        ? bv - av
+                        : av - bv;
+                })
+                .slice(0, layout.topN.count);
+        }
+        return result;
+    }, [
+        data,
+        layout.rangeCol,
+        layout.filtersRange,
+        layout.topN,
+    ]);
 
     //if pivot selected memo will get pivot data from redux and store as pivot result or stores null
     const pivotResult = useMemo(() => {
@@ -91,15 +77,12 @@ const filteredBaseData = useMemo(() => {
     }, [data, layout.pivot]);
 
 
-    // memo function to calculate data for charts
+    // memo function to calculate data for charts 
     const allChartData = useMemo(() => {
         if (!chart.x || !chart.y) return null;
 
         return groupDataAll(filteredBaseData, chart.x, chart.y);
     }, [filteredBaseData, chart.x, chart.y]);
-
-
-
 
     //data for chartss
     const chartData = allChartData
@@ -112,8 +95,6 @@ const filteredBaseData = useMemo(() => {
         if (!selected.length) return [];
         return selected.filter(c => allcol.includes(c));
     }, [data, selected, allcol]);
-
-
 
     //another memo function which checks whether pivot is selected , storees pivot columns or the original selected columns
     const finalColumns = useMemo(() => {
@@ -137,8 +118,7 @@ const filteredBaseData = useMemo(() => {
         });
     }, [finalColumns, columns]);
 
-
-    //window resizer for table
+    //table resizes automatically based on the reference's width
     useEffect(() => {
         const updateDimensions = () => {
             if (containerRef.current) {
@@ -150,17 +130,13 @@ const filteredBaseData = useMemo(() => {
         };
         // Update immediately
         updateDimensions();
-
         // Update on window resize
         window.addEventListener('resize', updateDimensions);
-
         return () => window.removeEventListener('resize', updateDimensions);
     }, [layout.columns]);
 
 
-    const chartEnabled =
-        Boolean(chart.type && chart.x && chart.y);
-
+    const chartEnabled = Boolean(chart.type && chart.x && chart.y);//boolean varable to chk chart is on or not
 
     //Similar to final columns , the finalrows stores the data based on pivot or normal table
     const finalRows = useMemo(() => {
@@ -170,90 +146,58 @@ const filteredBaseData = useMemo(() => {
         return filteredBaseData;
     }, [pivotResult, filteredBaseData]);
 
-
-
-    //gets columnwidth based on the index, when grid requests the columnwidth
-    const getColumnWidth = (index: number) => {
-        if (index === 0) return 48;
-
-        const col = finalColumns[index - 1];
-
-        return columnWidths[col] || 180;
-    };
-
+    // — Export —
     const handleSort = (direction: 'asc' | 'desc') => {
-        if (finalColumns.length === 0) return;
-
-        // Use first numeric column for sorting
-        const numericCol = finalColumns.find(col => {
-            const firstVal = finalRows[0]?.[col];
-            return !isNaN(Number(firstVal));
-        });
-
-        if (numericCol) {
-            setSortConfig({ column: numericCol, direction });
-        }
+        if (!sortCol) return; // nothing selected
+        setSortConfig({ column: sortCol, direction });
     };
 
-    // 2. EXPORT FUNCTIONALITY
     const handleExportCSV = () => {
-        // Create CSV content
         const headers = finalColumns.join(',');
         const rows = finalRows.map(row =>
             finalColumns.map(col => {
                 const val = row[col];
-                // Escape values with commas or quotes
                 return typeof val === 'string' && (val.includes(',') || val.includes('"'))
-                    ? `"${val.replace(/"/g, '""')}"`
-                    : val;
+                    ? `"${val.replace(/"/g, '""')}"` : val;
             }).join(',')
         ).join('\n');
-
-        const csv = `${headers}\n${rows}`;
-
-        // Download
-        const blob = new Blob([csv], { type: 'text/csv' });
+        const blob = new Blob([`${headers}\n${rows}`], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
-        a.download = `export_${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click();
+        a.href = url; a.download = `export_${new Date().toISOString().slice(0, 10)}.csv`; a.click();
         window.URL.revokeObjectURL(url);
-        setShowExportMenu(false);
     };
 
     const handleExportJSON = () => {
-        const json = JSON.stringify(finalRows, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
+        const blob = new Blob([JSON.stringify(finalRows, null, 2)], { type: 'application/json' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url;
-        a.download = `export_${new Date().toISOString().slice(0, 10)}.json`;
-        a.click();
+        a.href = url; a.download = `export_${new Date().toISOString().slice(0, 10)}.json`; a.click();
         window.URL.revokeObjectURL(url);
-        setShowExportMenu(false);
     };
 
-    // 3. APPLY SORTING TO FINAL ROWS
+    // — Column resize handler (passed down to TableGrid) —
+    const handleColumnResize = (col: string, delta: number) => {
+        setColumnWidths(prev => ({ ...prev, [col]: Math.max(120, (prev[col] || 180) + delta) }));
+    };
+
+    //  APPLY SORTING TO FINAL ROWS
     const sortedRows = useMemo(() => {
         if (!sortConfig.column || !sortConfig.direction) return finalRows;
 
         return [...finalRows].sort((a, b) => {
             const aVal = Number(a[sortConfig.column!]);
             const bVal = Number(b[sortConfig.column!]);
-
             if (isNaN(aVal) || isNaN(bVal)) return 0;
-
             return sortConfig.direction === 'asc'
                 ? aVal - bVal
                 : bVal - aVal;
         });
     }, [finalRows, sortConfig]);
 
-    // 4. APPLY FILTERING
+    //  APPLY FILTERING on sorted rows
     const filteredRows = useMemo(() => {
         if (!filterText.trim()) return sortedRows;
-
         const lowerFilter = filterText.toLowerCase();
         return sortedRows.filter(row =>
             finalColumns.some(col =>
@@ -261,48 +205,6 @@ const filteredBaseData = useMemo(() => {
             )
         );
     }, [sortedRows, filterText, finalColumns]);
-
-
-
-    //Row height based on the index ,0 represts the first column 
-    const getRowHeight = (index: number) => {
-        return index === 0 ? 40 : ROW_HEIGHT;
-    };
-
-    //Column resizing function ,with the help mousevents
-    const startResize = (e: React.MouseEvent, col: string) => {
-        resizingCol.current = col;
-        startX.current = e.clientX;
-        document.addEventListener("mousemove", onResize);
-        document.addEventListener("mouseup", stopResize);
-    };
-
-    // calculates the amount of change (i.e) scoll distance and updated with the columnwidth before 
-    const onResize = useCallback((e: MouseEvent) => {
-        if (!resizingCol.current) return;
-
-        const dx = e.clientX - startX.current;
-
-        setColumnWidths(prev => {
-            const next = {
-                ...prev,
-                [resizingCol.current!]: Math.max(120, prev[resizingCol.current!] + dx),
-            };
-
-            gridRef.current?.resetAfterColumnIndex(0);
-            return next;
-        });
-
-        startX.current = e.clientX;
-    }, []);
-
-    const stopResize = useCallback(() => {
-        resizingCol.current = null;
-
-        document.removeEventListener("mousemove", onResize);
-        document.removeEventListener("mouseup", stopResize);
-    }, [onResize]);
-
 
 
     if (!data.length)
@@ -321,7 +223,6 @@ const filteredBaseData = useMemo(() => {
 
 
     return (
-
         <div
             ref={containerRef}
             className="flex flex-col gap-2 h-screen border border-gray-400"
@@ -331,9 +232,7 @@ const filteredBaseData = useMemo(() => {
                 {chartEnabled && chartData.length > 0 && (
 
                     <div className="h-[420px] border-b bg-white p-3  ">
-
                         {/* MAIN CHART */}
-
                         <ChartPanel
                             data={chartData}
                             xKey={chart.x}
@@ -345,164 +244,35 @@ const filteredBaseData = useMemo(() => {
                 )}
 
                 <div className="flex-1 border-t min-h-0">
+                    <div className="flex-1 border-t min-h-0">
+                        <TableToolbar
+                            columns={finalColumns}
+                            sortCol={sortCol}
+                            onSortColChange={setSortCol}
+                            onSortAsc={() => handleSort('asc')}
+                            onSortDesc={() => handleSort('desc')}
+                            onExportCSV={handleExportCSV}
+                            onExportJSON={handleExportJSON}
+                            filterText={filterText}
+                            onFilterChange={setFilterText}
+                            hasActiveFilters={Boolean(sortConfig.column || filterText)}
+                            onClearAll={() => { setSortConfig({ column: null, direction: null }); setFilterText(''); }}
+                        />
 
+                        <TableStatus
+                            filteredCount={filteredRows.length}
+                            totalCount={finalRows.length}
+                            columnCount={finalColumns.length}
+                        />
 
-                    {/* TOOLBAR */}
-                    <div className="flex items-center gap-2 px-3 py-2 border-b bg-gray-50 sticky top-0 z-10">
-                        <button title="Sort Ascending" className="p-1.5 hover:bg-gray-200 rounded text-sm"
-                            onClick={() => handleSort("asc")}>
-                            ⬆️
-
-                        </button>
-                        <button title="Sort Descending" className="p-1.5 hover:bg-gray-200 rounded text-sm"
-                            onClick={() => handleSort("desc")}>
-                            ⬇️
-                        </button>
-                        <div className="border-l h-5 mx-1"></div>
-                        <button title="Refresh" className="p-1.5 hover:bg-gray-200 rounded text-sm" onClick={() => window.location.reload()}>
-                            🔄
-                        </button>
-                        <button title="Export" className="p-1.5 hover:bg-gray-200 rounded text-sm" onClick={() => setShowExportMenu(!showExportMenu)}>
-                            📥
-                        </button>
-                        {showExportMenu && (
-                            <div className="absolute top-full left-0 mt-1 bg-white border shadow-lg rounded z-20">
-                                <button
-                                    className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                                    onClick={handleExportCSV}
-                                >
-                                    Export as CSV
-                                </button>
-                                <button
-                                    className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
-                                    onClick={handleExportJSON}
-                                >
-                                    Export as JSON
-                                </button>
-                            </div>
-                        )}
-                        <button title="Filter" className="p-1.5 hover:bg-gray-200 rounded text-sm" onClick={() => setShowFilterInput(!showFilterInput)}>
-                            🔍
-                        </button>
-                        {showFilterInput && (
-                            <input
-                                type="text"
-                                placeholder="Filter rows..."
-                                value={filterText}
-                                onChange={(e) => setFilterText(e.target.value)}
-                                className="px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-                            />
-                        )}
-
-                        {/* Show active filters */}
-                        {(sortConfig.column || filterText) && (
-                            <button
-                                className="ml-auto text-xs text-red-600 hover:text-red-700"
-                                onClick={() => {
-                                    setSortConfig({ column: null, direction: null });
-                                    setFilterText('');
-                                    setShowFilterInput(false);
-                                }}
-                            >
-                                Clear All
-                            </button>
-                        )}
+                        <TableGrid
+                            finalColumns={finalColumns}
+                            filteredRows={filteredRows}
+                            dimensions={dimensions}
+                            columnWidths={columnWidths}
+                            onColumnResize={handleColumnResize}
+                        />
                     </div>
-
-                    {/* ✅ ADD THIS ROW COUNT DISPLAY */}
-                    <div className="flex items-center justify-between px-3 py-2 bg-blue-50 border-b text-xs">
-                        <div className="flex items-center gap-4">
-                            <span className="text-gray-600">
-                                📊 Showing <span className="font-semibold text-blue-600">{filteredRows.length}</span> of <span className="font-semibold">{finalRows.length}</span> rows
-                            </span>
-
-                            {filteredRows.length !== finalRows.length && (
-                                <span className="text-orange-600 font-medium">
-                                    (Filtered)
-                                </span>
-                            )}
-                        </div>
-
-                        <div className="text-gray-500">
-                            {finalColumns.length} columns selected
-                        </div>
-                    </div>
-
-
-                    <Grid
-                        ref={gridRef}
-                        columnCount={finalColumns.length + 1}
-                        rowCount={filteredRows.length + 1}
-                        columnWidth={getColumnWidth}
-                        rowHeight={getRowHeight}
-                        width={dimensions.width}
-                        height={Math.max(200, dimensions.height)}
-                    >
-                        {({ columnIndex, rowIndex, style }) => {
-                            /* HEADER */
-                            if (rowIndex === 0) {
-                                if (columnIndex === 0) {
-                                    return (
-                                        <div
-                                            style={style}
-                                            className="border-b border-r bg-gray-100 font-semibold flex items-center justify-center"
-                                        >
-                                            #
-                                        </div>
-                                    );
-                                }
-
-                                return (
-                                    <div
-                                        style={style}
-                                        className="border-b border-r bg-gray-100 font-semibold px-2 truncate relative"
-                                    >
-                                        {finalColumns[columnIndex - 1]}
-
-                                        {/* Resize */}
-                                        <div
-                                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400"
-                                            onMouseDown={(e) => {
-                                                e.preventDefault();
-                                                startResize(e, finalColumns[columnIndex - 1]);
-                                            }}
-                                        />
-                                    </div>
-                                );
-                            }
-
-                            /* INDEX */
-                            if (columnIndex === 0) {
-                                return (
-                                    <div
-                                        style={style}
-                                        className="border-r border-b text-center"
-                                    >
-                                        {rowIndex}
-                                    </div>
-                                );
-                            }
-
-                            /* DATA */
-                            const row = filteredRows[rowIndex - 1];
-                            const col = finalColumns[columnIndex - 1];
-                            const cellValue = row[col]
-                            const isNegative = !isNaN(Number(cellValue)) && Number(cellValue) < 0;
-
-
-                            return (
-                                <div
-                                    style={style}
-                                    className={`border-r border-b px-2 truncate ${isNegative ? 'text-red-600 font-medium' : ''
-                                        }`}
-                                    title={String(cellValue ?? "")}
-                                >
-                                    {cellValue}
-                                </div>
-                            );
-                        }}
-                    </Grid>
-
                 </div>
             </div>
         </div>

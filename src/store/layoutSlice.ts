@@ -23,13 +23,12 @@ interface TopNState {
   order: "top" | "bottom";
 }
 
-
 interface LayoutState {
   columns: string[];
   version: number;
   chart: ChartState;
   pivot: PivotState
-  filters: Record<string, string[]>; // ✅ ADD THIS
+  filters: Record<string, string[]>;
   filtersRange: Record<
     string,
     { min: number; max: number }
@@ -63,7 +62,7 @@ const initialState: LayoutState = {
     count: 10,
     order: "top",
   },
-  filters: {}, // ✅ ADD THIS
+  filters: {}, 
   filtersRange: {},
   rangeCol: "",
 
@@ -78,6 +77,7 @@ const layoutSlice = createSlice({
 
       if (state.columns.includes(col)) {
         state.columns = state.columns.filter(c => c !== col);
+        state.chart.x=""
       } else {
         state.columns.push(col);
       }
@@ -88,7 +88,6 @@ const layoutSlice = createSlice({
       state.version++;
     },
 
-    // ✅ Partial update, DOES NOT force enable
     setChart(state, action: PayloadAction<Partial<ChartState>>) {
       state.chart = {
         ...state.chart,
@@ -114,8 +113,6 @@ const layoutSlice = createSlice({
         value: "",
         agg: "sum",
       };
-
-
     },
 
     reorderColumns: (state, action) => {
@@ -137,7 +134,6 @@ const layoutSlice = createSlice({
 
     resetColumnsFromAll: (state, action: PayloadAction<string[]>) => {
       const allcol = action.payload;
-      // Keep only selected ones, but in original order
       state.columns = allcol.filter(c =>
         state.columns.includes(c)
       );
@@ -175,11 +171,10 @@ setRangeColumn(state, action: PayloadAction<string>) {
 
   state.rangeCol = col;
 
-  // Auto-create range when column selected
   if (col && !state.filtersRange[col]) {
     state.filtersRange[col] = {
       min: 0,
-      max: 100000, // default range
+      max: 100000, 
     };
   }
 },

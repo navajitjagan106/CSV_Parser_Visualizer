@@ -1,22 +1,5 @@
-import React, { useState, useMemo } from "react";
-import {
-    BarChart,
-    Bar,
-    LineChart,
-    Line,
-    PieChart,
-    Pie,
-    Tooltip,
-    XAxis,
-    YAxis,
-    ResponsiveContainer,
-    Cell,
-    Legend,
-    AreaChart,
-    Area,
-    ScatterChart,
-    Scatter
-} from "recharts";
+import { useState, useMemo } from "react";
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Tooltip, XAxis, YAxis, ResponsiveContainer, Cell, Legend, AreaChart, Area, ScatterChart, Scatter } from "recharts";
 
 interface Props {
     data: any[];
@@ -28,16 +11,18 @@ interface Props {
 
 export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
 
-    const [limit, setLimit] = useState(15);
-    const [sortMode, setSortMode] = useState<"none" | "desc" | "asc">("desc");
+    const [limit, setLimit] = useState(10);
+    const [sortMode, setSortMode] = useState<"none" | "desc" | "asc">("none");
 
-
+    //to define what chart we are wroking on
     const chartName = useMemo(() => {
         if (type === "bar") return "Bar Chart";
         if (type === "line") return "Line Chart";
         if (type === "pie") return "Pie Chart";
         return "Chart";
     }, [type]);
+
+    //finding the summaryvalue
     const summaryValue = useMemo(() => {
         if (!data.length) return 0;
 
@@ -59,7 +44,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
         }
     }, [data, yKey, agg]);
 
-
+    //processing data for the chart like ascending or desc based on the mode 
     const processedData = useMemo(() => {
         if (!data?.length) return [];
         let result = [...data]; // clone
@@ -76,6 +61,8 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
         return result;
     }, [data, limit, yKey, sortMode]);
 
+
+    //tooltip used to say what column we are hovering on the chart
     const CustomTooltip = ({ active, payload }: any) => {
         if (!active || !payload?.length) return null;
 
@@ -102,20 +89,21 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
         );
     }
 
+    //to generate a colour for the each pie segments in the piechart 
     const getColor = (index: number) => {
         const hue = (index * 137.5) % 360; // golden angle
         return `hsl(${hue}, 70%, 50%)`;
     };
 
 
-    /* ---------- UI ---------- */
+    // ---------- UI ---------- 
 
 
     return (
         <div className="w-full h-full flex flex-col bg-white rounded-lg shadow-sm border p-2">
 
 
-            {/* ===== HEADER ===== */}
+            {/* HEADER */}
             <div className="mb-2 pb-1 border-b flex flex-col gap-0.5">
 
                 <div className="flex items-center gap-2 mt-1">
@@ -156,12 +144,12 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                 </p>
 
                 {/* Summary */}
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-gray-400 mt-0.4">
                     Categories: {data.length} | Total: {formatNumber(summaryValue)}
                 </p>
             </div>
 
-            {/* ===== CHART ===== */}
+            {/*  CHART  */}
             <div className="w-full min-h-full">
 
                 <ResponsiveContainer
@@ -178,7 +166,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                                 angle={-25}
                                 textAnchor="end"
                                 interval="preserveStartEnd"
-                                height={90}
+                                height={60}
                                 tickFormatter={(v) =>
                                     String(v).length > 18
                                         ? String(v).slice(0, 18) + "…"
@@ -194,13 +182,13 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                                 }
                             />
                             <Tooltip content={<CustomTooltip />} />
-                            <Bar dataKey={yKey} fill="#3b82f6" />
+                            <Bar dataKey={yKey} fill="#1984c5" />
                         </BarChart>
                     )}
 
 
                     {type === "line" && (
-                        <LineChart data={processedData} margin={{ top: 20, right: 20, left: 50, bottom: 80 }}>
+                        <LineChart data={processedData} margin={{ top: 20, right: 20, left: 40, bottom: 80 }}>
                             <XAxis
                                 dataKey={xKey}
                                 angle={-25}
@@ -223,7 +211,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                                 }
                             />
                             <Tooltip formatter={(v) => formatNumber(Number(v))} />
-                            <Line dataKey={yKey} stroke="#2563eb" />
+                            <Line dataKey={yKey} stroke="#1984c5" />
                         </LineChart>
                     )}
 
