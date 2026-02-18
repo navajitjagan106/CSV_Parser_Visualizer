@@ -1,25 +1,25 @@
 import { useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { RootState } from "../store/store";
-import { setPivot} from "../store/layoutSlice";
-import { clearPivot } from "../store/layoutSlice";
+import { RootState } from "../../store/store";
+import { setPivot } from "../../store/layoutSlice";
+import { clearPivot } from "../../store/layoutSlice";
 
 
 export default function PivotControls() {
   const dispatch = useDispatch();
   const selected = useSelector((s: RootState) => s.layout.columns);
   const pivot = useSelector((s: RootState) => s.layout.pivot);
-  const allcol=useSelector((s:RootState)=>s.data.columns)
-  const [row, setRow] = useState(pivot.row);    
+  const allcol = useSelector((s: RootState) => s.data.columns)
+  const [row, setRow] = useState(pivot.row);
   const [column, setColumn] = useState(pivot.column);
   const [value, setValue] = useState(pivot.value);
   const [agg, setAgg] = useState(pivot.agg);
 
 
-  const columns = useMemo(() => {    
-          if (!selected.length) return [];
-          return allcol.filter(c => selected.includes(c));
-      }, [ selected, allcol]);
+  const columns = useMemo(() => {
+    if (!selected.length) return [];
+    return allcol.filter(c => selected.includes(c));
+  }, [selected, allcol]);
 
   const applyPivot = () => {
     if (!row || !column || !value) {
@@ -27,7 +27,7 @@ export default function PivotControls() {
       return;
     }
 
-    dispatch(       
+    dispatch(
       setPivot({
         enabled: true,
         row,
@@ -43,7 +43,7 @@ export default function PivotControls() {
       <h3 className="font-semibold text-gray-700">
         📊 Pivot Settings
       </h3>
-      
+
       {/* ROW */}
       <div>
         <label className="block text-xs text-gray-500 mb-1">
@@ -127,11 +127,11 @@ export default function PivotControls() {
         Apply Pivot
       </button>
       <button
-  onClick={() => dispatch(clearPivot())}
-  className="w-full bg-red-500 hover:bg-red-600 text-white py-1.5 rounded text-sm mt-2"
->
-  Close Pivot
-</button>
+        onClick={() => dispatch(clearPivot())}
+        className="w-full bg-red-500 hover:bg-red-600 text-white py-1.5 rounded text-sm mt-2"
+      >
+        Close Pivot
+      </button>
 
     </div>
   );

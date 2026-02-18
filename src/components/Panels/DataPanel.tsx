@@ -1,11 +1,16 @@
-import { RootState } from '../store/store'
+import { RootState } from '../../store/store'
 import { useSelector, useDispatch } from 'react-redux';
-import { selectColumn, selectAllColumns } from '../store/layoutSlice'
+import { selectColumn, selectAllColumns } from '../../store/layoutSlice'
 
 export default function DataPanel() {
+
+    //used to slect the the columns
     const columns = useSelector((s: RootState) => s.data.columns);
+
+    //used to select the selected columns fro m the redux
     const selected = useSelector((s: RootState) => s.layout.columns)
     const dispatch = useDispatch();
+
 
     const allSelected =
         columns.length > 0 &&
@@ -24,10 +29,12 @@ export default function DataPanel() {
                 }}
                 className="ml-2 text-xs px-2 py-1 rounded border hover:bg-gray-100"
             > {allSelected ? "Clear" : "Select All"}</button>
+            
+            {/*Listing all the available columns present from the data (redux) and making them draggable*/}
             {columns.map((col) => (
                 <div key={col} draggable
                     onDragStart={(e) => { e.dataTransfer.setData("text/plain", col); }}
-                    className='flex items-center gap-2 px-2  py-1 mb-1 text-sm cursor-pointer hover:bg-gray-200 rounded'
+                    className='flex items-center gap-2 px-2 py-1 mb-1 text-sm cursor-pointer hover:bg-gray-200 rounded'
                 >
                     <input
                         type="checkbox"
