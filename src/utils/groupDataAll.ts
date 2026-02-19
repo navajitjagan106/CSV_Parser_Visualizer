@@ -24,7 +24,7 @@ export function groupDataAll(
     count: number;
     min: number;
     max: number;
-    values: number[];        // for median
+    values: number[];        
     distinct: Set<any>;
   };
 

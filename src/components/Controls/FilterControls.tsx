@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { setTopN, clearTopN, clearRangeFilter, setRangeFilter, setRangeColumn, clearMultiSelectFilter, setMultiSelectFilter, clearAllMultiSelectFilter, setNullFilter, clearNullFilter } from '../../store/layoutSlice'
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store/store';
@@ -10,7 +10,11 @@ export default function FilterControls() {
     const [multiSearch, setMultiSearch] = useState('');
     const selected = useSelector((s: RootState) => s.layout.columns)//selecting the selected columns
     const allcol = useSelector((s: RootState) => s.data.columns)//selecting the original columns from the data redux
-    const layout = useSelector((s: RootState) => s.layout) //selecting the entire layout to access filter variables
+    const topN = useSelector((s: RootState) => s.layout.topN);
+    const filtersRange = useSelector((s: RootState) => s.layout.filtersRange);
+    const rangeCol = useSelector((s: RootState) => s.layout.rangeCol);
+    const multiSelectFilters = useSelector((s: RootState) => s.layout.multiSelectFilters);
+    const nullFilters = useSelector((s: RootState) => s.layout.nullFilters);
     const rows = useSelector((s: RootState) => s.data.rows);
 
     const dispatch = useDispatch()
@@ -29,11 +33,13 @@ export default function FilterControls() {
         return Array.from(new Set(vals)).sort();
     }, [activeMultiCol, rows]);
 
-    const filteredValues = uniqueValues.filter(v =>
-        v.toLowerCase().includes(multiSearch.toLowerCase())
-    );
+    const filteredValues = useMemo(() =>
+        uniqueValues.filter(v =>
+            v.toLowerCase().includes(multiSearch.toLowerCase())
+        ),
+        [uniqueValues, multiSearch]);
 
-    const currentSelected = layout.multiSelectFilters?.[activeMultiCol] || [];
+    const currentSelected = multiSelectFilters?.[activeMultiCol] || [];
 
     const toggleValue = (val: string) => {
         const next = currentSelected.includes(val)
@@ -50,6 +56,18 @@ export default function FilterControls() {
         else
             dispatch(setMultiSelectFilter({ column: activeMultiCol, values: uniqueValues }));
     };
+    useEffect(() => {
+        if (activeMultiCol && !selected.includes(activeMultiCol)) {
+            setActiveMultiCol('');
+            setMultiSearch('');
+        }
+    }, [selected, activeMultiCol]);
+
+    useEffect(() => {
+        if (activeNullCol && !selected.includes(activeNullCol)) {
+            setActiveNullCol('');
+        }
+    }, [selected, activeNullCol]);
 
     return (
         <div className='space-y-2'>
@@ -59,11 +77,11 @@ export default function FilterControls() {
             <button
                 onClick={() => {
                     if (showFilters) {
-                        if (layout.rangeCol) {
-                            dispatch(clearRangeFilter(layout.rangeCol));
+                        if (rangeCol) {
+                            dispatch(clearRangeFilter(rangeCol));
                             dispatch(setRangeColumn(''));
                         }
-                        if (layout.topN.enabled) {
+                        if (topN.enabled) {
                             dispatch(clearTopN());
                         }
                     }
@@ -87,21 +105,13 @@ export default function FilterControls() {
 
                         <select
                             className="w-full border rounded text-xs p-1"
-                            value={columns.includes(layout.rangeCol) ? layout.rangeCol : ''}
+                            value={columns.includes(rangeCol) ? rangeCol : ''}
                             onChange={(e) => {
                                 const col = e.target.value;
 
                                 dispatch(setRangeColumn(col));
 
-                                if (col && !layout.filtersRange?.[col]) {
-                                    dispatch(
-                                        setRangeFilter({
-                                            column: col,
-                                            min: 0,
-                                            max: 1000,
-                                        })
-                                    );
-                                }
+
                             }}>
                             <option value="">Select Numeric Field</option>
                             {columns.map(c => (
@@ -109,20 +119,20 @@ export default function FilterControls() {
                             ))}
                         </select>
 
-                        {layout.filtersRange?.[layout.rangeCol] && (
+                        {filtersRange?.[rangeCol] && (
                             <>
                                 <div className="flex gap-2">
                                     <input
                                         type="number"
                                         placeholder="Min"
                                         className="w-1/2 border rounded px-2 py-1 text-xs"
-                                        value={layout.filtersRange?.[layout.rangeCol]?.min || 0}
+                                        value={filtersRange?.[rangeCol]?.min || 0}
                                         onChange={(e) =>
                                             dispatch(
                                                 setRangeFilter({
-                                                    column: layout.rangeCol,
+                                                    column: rangeCol,
                                                     min: Number(e.target.value),
-                                                    max: layout.filtersRange?.[layout.rangeCol]?.max || 0,
+                                                    max: filtersRange?.[rangeCol]?.max || 0,
                                                 })
                                             )
                                         }
@@ -132,12 +142,12 @@ export default function FilterControls() {
                                         type="number"
                                         placeholder="Max"
                                         className="w-1/2 border rounded px-2 py-1 text-xs"
-                                        value={layout.filtersRange?.[layout.rangeCol]?.max || 0}
+                                        value={filtersRange?.[rangeCol]?.max || 0}
                                         onChange={(e) =>
                                             dispatch(
                                                 setRangeFilter({
-                                                    column: layout.rangeCol,
-                                                    min: layout.filtersRange?.[layout.rangeCol]?.min || 0,
+                                                    column: rangeCol,
+                                                    min: filtersRange?.[rangeCol]?.min || 0,
                                                     max: Number(e.target.value),
                                                 })
                                             )
@@ -147,8 +157,8 @@ export default function FilterControls() {
 
                                 <button
                                     onClick={() => {
-                                        if (layout.rangeCol) {
-                                            dispatch(clearRangeFilter(layout.rangeCol));
+                                        if (rangeCol) {
+                                            dispatch(clearRangeFilter(rangeCol));
                                             dispatch(setRangeColumn(""));
                                         }
                                     }}
@@ -168,7 +178,7 @@ export default function FilterControls() {
                                 Top / Bottom N
                             </p>
 
-                            {layout.topN.enabled && (
+                            {topN.enabled && (
                                 <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
                                     Active
                                 </span>
@@ -178,7 +188,7 @@ export default function FilterControls() {
                         {/* Row 1: Top / Bottom + Metric */}
                         <div className="flex gap-2">
                             <select
-                                value={columns.includes(layout.topN.column) ? layout.topN.column : ''}
+                                value={columns.includes(topN.column) ? topN.column : ''}
                                 onChange={(e) =>
                                     dispatch(setTopN({ order: e.target.value }))
                                 }
@@ -189,7 +199,7 @@ export default function FilterControls() {
                             </select>
 
                             <select
-                                value={layout.topN.column}
+                                value={topN.column}
                                 onChange={(e) =>
                                     dispatch(setTopN({ column: e.target.value }))
                                 }
@@ -209,7 +219,7 @@ export default function FilterControls() {
                             <input
                                 type="number"
                                 min={1}
-                                value={layout.topN.count}
+                                value={topN.count}
                                 onChange={(e) =>
                                     dispatch(setTopN({ count: Number(e.target.value) }))
                                 }
@@ -219,7 +229,7 @@ export default function FilterControls() {
                         </div>
 
                         {/* Clear */}
-                        {layout.topN.enabled && (
+                        {topN.enabled && (
                             <button
                                 onClick={() => dispatch(clearTopN())}
                                 className="w-full text-xs bg-red-50 text-red-600 py-1.5 rounded-md hover:bg-red-100 transition"
@@ -248,14 +258,14 @@ export default function FilterControls() {
                                     className={`text-[10px] px-2 py-1 rounded border transition
                                             ${activeMultiCol === c
                                             ? 'bg-blue-500 text-white border-blue-500'
-                                            : layout.multiSelectFilters?.[c]?.length
+                                            : multiSelectFilters?.[c]?.length
                                                 ? 'bg-blue-50 text-blue-600 border-blue-200'  // has active filter
                                                 : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                                         }`}
                                 >
                                     {c}
-                                    {layout.multiSelectFilters?.[c]?.length
-                                        ? ` (${layout.multiSelectFilters[c].length})`
+                                    {multiSelectFilters?.[c]?.length
+                                        ? ` (${multiSelectFilters[c].length})`
                                         : ''
                                     }
                                 </button>
@@ -300,7 +310,7 @@ export default function FilterControls() {
                         )}
 
                         {/* ── Active selections shown as tags grouped by column ── */}
-                        {Object.entries(layout.multiSelectFilters || {}).map(([col, vals]) =>
+                        {Object.entries(multiSelectFilters || {}).filter(([col]) => selected.includes(col)).map(([col, vals]) =>
                             vals.length > 0 && (
                                 <div key={col} className="space-y-1">
                                     {/* Column label with clear-all for that column */}
@@ -334,7 +344,7 @@ export default function FilterControls() {
                         )}
 
                         {/* Clear everything */}
-                        {Object.keys(layout.multiSelectFilters || {}).length > 0 && (
+                        {Object.keys(multiSelectFilters || {}).length > 0 && (
                             <button onClick={() => dispatch(clearAllMultiSelectFilter())}
                                 className="w-full text-xs bg-red-50 text-red-600 py-1.5 rounded-md hover:bg-red-100">
                                 Clear All Filters
@@ -347,9 +357,9 @@ export default function FilterControls() {
                     <div className='border rounded-lg p-3 bg-gray-50 space-y-3'>
                         <div className='flex items-center justify-between '>
                             <p className="text-xs font-semibold text-gray-600 uppercase">Null / Empty Filter</p>
-                            {Object.keys(layout.nullFilters || {}).length > 0 && (
+                            {Object.keys(nullFilters || {}).length > 0 && (
                                 <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
-                                    {Object.keys(layout.nullFilters).length} active
+                                    {Object.keys(nullFilters).length} active
                                 </span>
                             )}
                         </div>
@@ -361,7 +371,7 @@ export default function FilterControls() {
                                     className={`text-[10px] px-2 py-1 rounded border transition
                                     ${activeNullCol === c
                                             ? 'bg-blue-500 text-white border-blue-500'
-                                            : layout.nullFilters?.[c]
+                                            : nullFilters?.[c]
                                                 ? 'bg-blue-50 text-blue-600 border-blue-200'
                                                 : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
                                         }`}
@@ -380,7 +390,7 @@ export default function FilterControls() {
                                     <button
                                         onClick={() => dispatch(setNullFilter({ column: activeNullCol, mode: 'show' }))}
                                         className={`flex-1 text-xs py-1.5 rounded border transition
-            ${layout.nullFilters?.[activeNullCol] === 'show'
+            ${nullFilters?.[activeNullCol] === 'show'
                                                 ? 'bg-blue-500 text-white border-blue-500'
                                                 : 'bg-white hover:bg-gray-50'}`}
                                     >
@@ -389,7 +399,7 @@ export default function FilterControls() {
                                     <button
                                         onClick={() => dispatch(setNullFilter({ column: activeNullCol, mode: 'hide' }))}
                                         className={`flex-1 text-xs py-1.5 rounded border transition
-            ${layout.nullFilters?.[activeNullCol] === 'hide'
+            ${nullFilters?.[activeNullCol] === 'hide'
                                                 ? 'bg-blue-500 text-white border-blue-500'
                                                 : 'bg-white hover:bg-gray-50'}`}
                                     >
@@ -397,7 +407,7 @@ export default function FilterControls() {
                                     </button>
                                 </div>
 
-                                {layout.nullFilters?.[activeNullCol] && (
+                                {nullFilters?.[activeNullCol] && (
                                     <button
                                         onClick={() => dispatch(clearNullFilter(activeNullCol))}
                                         className="w-full text-xs text-red-500 hover:underline"
@@ -409,7 +419,7 @@ export default function FilterControls() {
                         )}
 
                         {/* Active badges */}
-                        {Object.entries(layout.nullFilters || {}).map(([col, mode]) => (
+                        {Object.entries(nullFilters || {}).filter(([col]) => selected.includes(col)).map(([col, mode]) => (
                             <div key={col} className="flex items-center justify-between bg-blue-50 rounded px-2 py-1.5 text-xs">
                                 <span className="text-blue-700 font-medium">{col}:</span>
                                 <span className="text-gray-600 mx-1">{mode === 'show' ? 'showing empty' : 'hiding empty'}</span>

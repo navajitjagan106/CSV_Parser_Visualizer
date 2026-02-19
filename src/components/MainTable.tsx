@@ -13,7 +13,12 @@ export default function MainTable() {
     const data = useSelector((s: RootState) => s.data.rows);//selecting the actual data from redux
     const selected = useSelector((s: RootState) => s.layout.columns);// selected the selected column fields from the redux
     const allcol = useSelector((s: RootState) => s.data.columns);//selecting the entirity of the columns from the redux
-    const layout = useSelector((s: RootState) => s.layout);//selection the layout for accesing the filter objects
+     const topN = useSelector((s: RootState) => s.layout.topN);
+    const filtersRange = useSelector((s: RootState) => s.layout.filtersRange);
+    const rangeCol = useSelector((s: RootState) => s.layout.rangeCol);
+    const multiSelectFilters = useSelector((s: RootState) => s.layout.multiSelectFilters);
+    const nullFilters = useSelector((s: RootState) => s.layout.nullFilters);
+    const pivot=useSelector((s:RootState)=>s.layout.pivot);
     const chart = useSelector((s: RootState) => s.layout.chart);//selecting the chart object for accesing its data
 
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });//to set dimensions for the grid acc to window size
@@ -30,29 +35,29 @@ export default function MainTable() {
     const filteredBaseData = useMemo(() => {
         let result = [...data];
         /*  RANGE FILTER  */
-        if (layout.rangeCol && selected.includes(layout.rangeCol) && layout.filtersRange?.[layout.rangeCol]) {
-            const { min, max } = layout.filtersRange[layout.rangeCol];
+        if (rangeCol && selected.includes(rangeCol) && filtersRange?.[rangeCol]) {
+            const { min, max } = filtersRange[rangeCol];
             result = result.filter(row => {
-                const val = Number(row[layout.rangeCol]);
+                const val = Number(row[rangeCol]);
                 if (isNaN(val)) return false;
                 return val >= min && val <= max;
             });
         }
         /*  TOP N FILTER  */
-        if (layout.topN.enabled && layout.topN.column && selected.includes(layout.topN.column)) {
-            const col = layout.topN.column;
+        if (topN.enabled && topN.column && selected.includes(topN.column)) {
+            const col = topN.column;
             result = result
                 .filter(r => !isNaN(Number(r[col])))
                 .sort((a, b) => {
                     const av = Number(a[col]);
                     const bv = Number(b[col]);
-                    return layout.topN.order === "top"
+                    return topN.order === "top"
                         ? bv - av
                         : av - bv;
                 })
-                .slice(0, layout.topN.count);
+                .slice(0, topN.count);
         }
-        const multiFilters = layout.multiSelectFilters || {};
+        const multiFilters = multiSelectFilters || {};
         Object.entries(multiFilters).forEach(([col, vals]) => {
             if (vals.length > 0 && selected.includes(col)) {
                 result = result.filter(row => vals.includes(String(row[col] ?? '')));
@@ -60,8 +65,8 @@ export default function MainTable() {
         });
 
         // NULL FILTER
-        const nullFilters = layout.nullFilters || {};
-        Object.entries(nullFilters).forEach(([col, mode]) => {
+        const nullFilter= nullFilters || {};
+        Object.entries(nullFilter).forEach(([col, mode]) => {
             if (!selected.includes(col)) return;
             if (mode === 'show') {
                 // show only empty rows
@@ -78,19 +83,17 @@ export default function MainTable() {
             }
         });
         return result;
-    }, [data, layout.rangeCol, layout.filtersRange, layout.topN, layout.multiSelectFilters,layout.nullFilters, selected,]);
+    }, [data, rangeCol, filtersRange, topN, multiSelectFilters, nullFilters, selected,]);
 
     //if pivot selected memo will get pivot data from redux and store as pivot result or stores null
     const pivotResult = useMemo(() => {
-        if (!layout.pivot.enabled) return null;
-        return pivotData(
-            filteredBaseData,
-            layout.pivot.row,
-            layout.pivot.column,
-            layout.pivot.value,
-            layout.pivot.agg
-        );
-    }, [filteredBaseData, layout.pivot]);
+        if (!pivot.enabled) return null;
+        const { row, column, value } = pivot;
+
+        if (!row || !column || !value) return null;
+        if (!selected.includes(row) || !selected.includes(column) || (!value.every(v => selected.includes(v))) ) return null;
+        return pivotData(filteredBaseData, row, column, value, pivot.agg);
+    }, [filteredBaseData, pivot, selected]);
 
     // memo function to calculate data for charts 
     const allChartData = useMemo(() => {
@@ -145,7 +148,7 @@ export default function MainTable() {
         // Update on window resize
         window.addEventListener('resize', updateDimensions);
         return () => window.removeEventListener('resize', updateDimensions);
-    }, [layout.columns]);
+    }, [selected]);
 
     const chartEnabled = Boolean(chart.type && chart.x && chart.y);//boolean varable to chk chart is on or not
 
