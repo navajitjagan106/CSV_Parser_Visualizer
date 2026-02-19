@@ -96,7 +96,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
     };
 
 
-    // ---------- UI ---------- 
+    //  UI  
 
 
     return (

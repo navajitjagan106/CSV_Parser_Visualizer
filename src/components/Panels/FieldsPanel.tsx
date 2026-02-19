@@ -1,16 +1,17 @@
 import React, { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store/store';
-import { selectColumn, resetColumnsFromAll, reorderColumns, setChart, togglePivot, clearRangeFilter, setRangeColumn, clearTopN } from '../../store/layoutSlice';
+import { selectColumn, resetColumnsFromAll, reorderColumns, setChart, clearRangeFilter, setRangeColumn, clearTopN, setPivot } from '../../store/layoutSlice';
 
 export default function FieldsPanel() {
     const dispatch = useDispatch()
     const selected = useSelector((s: RootState) => s.layout.columns)//selecting the selected columns
-    const version = useSelector((s: RootState) => s.layout.version) //
     const allcol = useSelector((s: RootState) => s.data.columns)//selecting the original columns from the data redux
     const chart = useSelector((s: RootState) => s.layout.chart); // add this selector
     const pivot = useSelector((s: RootState) => s.layout.pivot)
-    const layout = useSelector((s: RootState) => s.layout);
+    const rangeCol = useSelector((s: RootState) => s.layout.rangeCol);
+    const topN = useSelector((s: RootState) => s.layout.topN);
+
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);// allows dragging and orderchange of columns
 
     return (
@@ -64,7 +65,7 @@ export default function FieldsPanel() {
                     ) : (
                         selected.map((col, index) => (
                             <label
-                                key={`${version}-${col}`}
+                                key={col}
                                 draggable
                                 onDragStart={() => setDraggedIndex(index)}
                                 onDragOver={(e) => e.preventDefault()}
@@ -87,15 +88,15 @@ export default function FieldsPanel() {
                                         if (chart.y === col) dispatch(setChart({ y: '' }));
 
                                         // Clear pivot fields if they used this column
-                                        if (pivot.row === col) dispatch(togglePivot());
-                                        if (pivot.column === col) dispatch(togglePivot());
-                                        if (pivot.value === col) dispatch(togglePivot());
-
-                                        if (layout.rangeCol === col) {
+                                        if (pivot.row === col) dispatch(setPivot({ row: '' }));
+                                        if (pivot.column === col) dispatch(setPivot({ column: '' }));
+                                        if (pivot.value.includes(col)) dispatch(setPivot({ value: pivot.value.filter(v => v !== col) }));
+                                        
+                                        if (rangeCol === col) {
                                             dispatch(clearRangeFilter(col));
                                             dispatch(setRangeColumn(''));
                                         }
-                                        if (layout.topN.column === col) {
+                                        if (topN.column === col) {
                                             dispatch(clearTopN());
                                         }
                                         dispatch(selectColumn(col));

@@ -2,7 +2,6 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 export type Aggregation = "sum" | "avg" | "min" | "max" | "count";
 
 interface ChartState {
-  //enabled: boolean;
   type: "bar" | "line" | "pie" | "area" | "scatter" | "";
   x: string;
   y: string;
@@ -12,7 +11,7 @@ interface PivotState {
   enabled: boolean,
   row: string,
   column: string,
-  value: string,
+  value: string[],
   agg: Aggregation
 }
 
@@ -25,10 +24,8 @@ interface TopNState {
 
 interface LayoutState {
   columns: string[];
-  version: number;
   chart: ChartState;
   pivot: PivotState
-  filters: Record<string, string[]>;
   filtersRange: Record<
     string,
     { min: number; max: number }
@@ -36,14 +33,12 @@ interface LayoutState {
   rangeCol: string;
   topN: TopNState;
   multiSelectFilters: Record<string, string[]>;
-  nullFilters: Record<string, 'show' | 'hide'>; 
+  nullFilters: Record<string, 'show' | 'hide'>;
 }
 
 const initialState: LayoutState = {
   columns: [],
-  version: 0,
   chart: {
-    //enabled: false,
     type: "",
     x: "",
     y: "",
@@ -53,7 +48,7 @@ const initialState: LayoutState = {
     enabled: false,
     row: "",
     column: "",
-    value: "",
+    value: [],
     agg: "sum",
   },
   topN: {
@@ -62,11 +57,11 @@ const initialState: LayoutState = {
     count: 10,
     order: "top",
   },
-  filters: {},
+
   filtersRange: {},
   rangeCol: "",
   multiSelectFilters: {},
-  nullFilters:{},
+  nullFilters: {},
 };
 
 const layoutSlice = createSlice({
@@ -78,7 +73,8 @@ const layoutSlice = createSlice({
 
       if (state.columns.includes(col)) {
         state.columns = state.columns.filter(c => c !== col);
-        state.chart.x = ""
+        if (state.chart.x === col) state.chart.x = "";
+        if (state.chart.y === col) state.chart.y = "";
       } else {
         state.columns.push(col);
       }
@@ -86,8 +82,8 @@ const layoutSlice = createSlice({
 
     clearColumn(state) {
       state.columns = [];
-      state.version++;
     },
+
 
     setChart(state, action: PayloadAction<Partial<ChartState>>) {
       state.chart = {
@@ -107,13 +103,7 @@ const layoutSlice = createSlice({
 
     },
     clearPivot(state) {
-      state.pivot = {
-        enabled: false,
-        row: "",
-        column: "",
-        value: "",
-        agg: "sum",
-      };
+      state.pivot = initialState.pivot;
     },
 
     reorderColumns: (state, action) => {
@@ -124,12 +114,10 @@ const layoutSlice = createSlice({
       updated.splice(to, 0, moved);
 
       state.columns = updated;
-      state.version++;
     },
 
     selectAllColumns(state, action) {
       state.columns = action.payload;
-      state.version++;
     },
 
 
@@ -138,30 +126,21 @@ const layoutSlice = createSlice({
       state.columns = allcol.filter(c =>
         state.columns.includes(c)
       );
-      state.version++;
     },
 
     clearChart(state) {
-      state.chart = {
-        // enabled: false,
-        type: "",
-        x: "",
-        y: "",
-        agg: "sum"
-      };
+      state.chart = initialState.chart;
     },
 
-    setFilter(state, action) {
-      const { column, values } = action.payload;
-      state.filters[column] = values;
-    },
+
 
     setTopN(state, action) {
       state.topN = {
         ...state.topN,
         ...action.payload,
-        enabled: true,
       };
+      state.topN.enabled = Boolean(state.topN.column);
+
     },
 
     clearTopN(state) {
@@ -200,11 +179,11 @@ const layoutSlice = createSlice({
       state.multiSelectFilters = {}
     },
     setNullFilter: (state, action: PayloadAction<{ column: string; mode: 'show' | 'hide' }>) => {
-  state.nullFilters[action.payload.column] = action.payload.mode;
-},
-clearNullFilter: (state, action: PayloadAction<string>) => {
-  delete state.nullFilters[action.payload];
-},
+      state.nullFilters[action.payload.column] = action.payload.mode;
+    },
+    clearNullFilter: (state, action: PayloadAction<string>) => {
+      delete state.nullFilters[action.payload];
+    },
 
 
   },
@@ -212,7 +191,7 @@ clearNullFilter: (state, action: PayloadAction<string>) => {
 
 export const {
   selectColumn, clearColumn, setChart, clearChart, setPivot, togglePivot, clearPivot, reorderColumns, resetColumnsFromAll, selectAllColumns, setTopN, setRangeColumn,
-  clearTopN, setFilter, setRangeFilter, clearRangeFilter, setMultiSelectFilter, clearAllMultiSelectFilter, clearMultiSelectFilter,setNullFilter,clearNullFilter,
+  clearTopN, setRangeFilter, clearRangeFilter, setMultiSelectFilter, clearAllMultiSelectFilter, clearMultiSelectFilter, setNullFilter, clearNullFilter,
 } = layoutSlice.actions;
 
 export default layoutSlice.reducer;

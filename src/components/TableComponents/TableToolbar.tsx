@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import { useDispatch } from 'react-redux';
+import { clearColumn } from '../../store/layoutSlice';
 type Props = {
     onSortAsc: () => void;
     onSortDesc: () => void;
@@ -21,9 +23,9 @@ export default function TableToolbar({
 }: Props) {
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [showFilterInput, setShowFilterInput] = useState(false);
-
+    const dispatch=useDispatch()
     return (
-        <div>
+        <div className='relative'>
             {/* TOOLBAR */}
             <div className="flex items-center gap-2 px-3 py-2 border-b bg-gray-50 sticky top-0 z-10">
                 <select
@@ -43,7 +45,7 @@ export default function TableToolbar({
                     ⬇️
                 </button>
                 <div className="border-l h-5 mx-1"></div>
-                <button title="Refresh" className="p-1.5 hover:bg-gray-200 rounded text-sm" onClick={() => window.location.reload()}>
+                <button title="Refresh" className="p-1.5 hover:bg-gray-200 rounded text-sm" onClick={() => dispatch(clearColumn())}>
                     🔄
                 </button>
                 <button title="Export" className="p-1.5 hover:bg-gray-200 rounded text-sm" onClick={() => setShowExportMenu(!showExportMenu)}>
@@ -92,4 +94,3 @@ export default function TableToolbar({
         </div>
     )
 }
-

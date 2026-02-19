@@ -1,46 +1,11 @@
-import Papa from "papaparse";
-import { useDispatch} from "react-redux";
-import { setData, clearData } from "./store/dataSlice";
 import DataPanel from "./components/Panels/DataPanel";
 import MainTable from "./components/MainTable";
-import { clearColumn} from "./store/layoutSlice";
 import VisualisationPanel from "./components/Panels/VisualizationPanel";
-import { useRef, useState } from "react";
-
+import { useFileUpload } from "./utils/useFileUpload";
 
 function App() {
-  const dispatch = useDispatch();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [hasFile, setHasFile] = useState(false);
-  const [fileName, setFileName] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const handleUpload = (e: any) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    dispatch(clearColumn());
-    dispatch(clearData());
-
-    setHasFile(true);
-    setFileName(file.name);
-    setLoading(true);
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      // worker: false,        
-      dynamicTyping: true,
-      complete: (result) => {
-        dispatch(setData(result.data as Record<string, any>[]));
-        setLoading(false);
-      },
-      error: () => {
-        setLoading(false);
-        alert("Failed to parse file");
-      },
-    });
-  }
-
+ const { fileRef, hasFile, fileName, loading, handleUpload } = useFileUpload();
   const handleReset = () => {
    window.location.reload();
   };

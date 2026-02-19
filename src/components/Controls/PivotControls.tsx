@@ -18,7 +18,6 @@ export default function PivotControls() {
 
   const row = columns.includes(pivot.row) ? pivot.row : '';
   const column = columns.includes(pivot.column) ? pivot.column : '';
-  const value = columns.includes(pivot.value) ? pivot.value : '';
 
   return (
     <div className="bg-gray-50 border rounded p-3 text-sm space-y-2">
@@ -64,21 +63,24 @@ export default function PivotControls() {
       </div>
 
       {/* VALUE */}
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">
-          Values
-        </label>
-        <select
-          value={value}
-          onChange={(e) => dispatch(setPivot({ ...pivot, value: e.target.value }))}
-          className="w-full border rounded px-2 py-1">
-          <option value="">Select</option>
-          {columns.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+      <div className="flex flex-wrap gap-1">
+        {columns.map(c => (
+          <button key={c}
+            onClick={() => {
+              const current = pivot.value
+              const next = current.includes(c)
+                ? current.filter(v => v !== c)
+                : [...current, c];
+              dispatch(setPivot({ value: next }));
+            }}
+            className={`text-[10px] px-2 py-1 rounded border
+                ${(pivot.value as string[]).includes(c)
+                ? 'bg-blue-500 text-white'
+                : 'bg-white text-gray-600'}`}
+          >
+            {c}
+          </button>
+        ))}
       </div>
 
       {/* AGG */}
@@ -98,7 +100,7 @@ export default function PivotControls() {
           <option value="count">Count</option>
         </select>
       </div>
-     
+
       <button
         onClick={() => dispatch(clearPivot())}
         className="w-full bg-red-500 hover:bg-red-600 text-white py-1.5 rounded text-sm mt-2"

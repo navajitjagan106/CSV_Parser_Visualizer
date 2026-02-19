@@ -1,51 +1,52 @@
 type PivotRow = Record<string, any>;
+type Agg = "sum" | "avg" | "min" | "max" | "count";
 
+function aggregate(values: number[], agg: Agg): number {
+    if (!values.length) return 0;
+    switch (agg) {
+        case "avg": return values.reduce((a, b) => a + b, 0) / values.length;
+        case "min": return Math.min(...values);
+        case "max": return Math.max(...values);
+        case "count": return values.length;
+        default: return values.reduce((a, b) => a + b, 0);
+    }
+}
 export function pivotData(
     rows: PivotRow[],
     rowKey: string,
     colKey: string,
-    valueKey: string,
+    valueKey: string[],
     agg: "sum" | "avg" | "min" | "max" | "count"
 ) {
-    const map: Record<string, Record<string, number[]>> = {};
+    const map: Record<string, Record<string, Record<string, number[]>>> = {};
 
-    rows.forEach((r: PivotRow) => {
-        const row = String(r[rowKey] ?? "Unknown");
-        const col = String(r[colKey] ?? "Unknown");
-        const val = Number(String(r[valueKey]).replace(/,/g, "")) || 0;
+    //const map: Record<string, Record<string, Record<string, number[]>>> = {};
 
-        if (!map[row]) map[row] = {};
-        if (!map[row][col]) map[row][col] = [];
+    rows.forEach((r) => {
+        const rowVal = String(r[rowKey] ?? "Unknown");
+        const colVal = String(r[colKey] ?? "Unknown");
 
-        map[row][col].push(val);
+        if (!map[rowVal]) map[rowVal] = {};
+        if (!map[rowVal][colVal]) map[rowVal][colVal] = {};
+
+        valueKey.forEach(vk => {
+            const num = Number(String(r[vk]).replace(/,/g, "")) || 0;
+            if (!map[rowVal][colVal][vk]) map[rowVal][colVal][vk] = [];
+            map[rowVal][colVal][vk].push(num);
+        });
     });
 
-    const result:PivotRow[] = [];
+
+    const result: PivotRow[] = [];
 
     Object.entries(map).forEach(([row, cols]) => {
         const obj: PivotRow = { [rowKey]: row };
 
         Object.entries(cols).forEach(([col, values]) => {
-            let v = 0;
-
-            switch (agg) {
-                case "avg":
-                    v = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
-                    break;
-                case "min":
-                    v = Math.min(...values);
-                    break;
-                case "max":
-                    v = Math.max(...values);
-                    break;
-                case "count":
-                    v = values.length;
-                    break;
-                default:
-                    v = values.reduce((a, b) => a + b, 0);
-            }
-
-            obj[col] = v;
+           valueKey.forEach(vk=>{
+            const colName=valueKey.length>1?`${col}_${vk}`:col;
+            obj[colName]=aggregate(values[vk]||[],agg)
+           })
         });
 
         result.push(obj);
