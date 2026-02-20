@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Tooltip, XAxis, YAxis, ResponsiveContainer, Cell, Legend, AreaChart, Area, ScatterChart, Scatter } from "recharts";
+import { Treemap } from "recharts";
 
 interface Props {
     data: any[];
@@ -97,22 +98,15 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
 
 
     //  UI  
-
-
     return (
         <div className="w-full h-full flex flex-col bg-white rounded-lg shadow-sm border p-2">
-
-
             {/* HEADER */}
             <div className="mb-2 pb-1 border-b flex flex-col gap-0.5">
-
                 <div className="flex items-center gap-2 mt-1">
                     <span className="text-xs text-gray-500">Show:</span>
-
                     <select
                         value={limit}
                         disabled={sortMode === "none"}
-
                         onChange={(e) => setLimit(Number(e.target.value))}
                         className="text-xs border rounded px-1 py-0.5"
                     >
@@ -121,7 +115,6 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                         <option value={20}>Top 20</option>
                         <option value={0}>All</option>
                     </select>
-
                     <select
                         value={sortMode}
                         onChange={(e) => setSortMode(e.target.value as any)}
@@ -154,8 +147,8 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
 
                 <ResponsiveContainer
                     width="100%"
-                    height="100%">
-
+                    height={type === 'treemap' ? 250 : '100%'}
+                    >
                     {type === "bar" && (
                         <BarChart
                             data={processedData}
@@ -226,7 +219,7 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                                 outerRadius="65%"
                                 paddingAngle={1}
                                 labelLine={false}
-                            >{data.map((_, index) => (
+                            >{processedData.map((_, index) => (
                                 <Cell
                                     key={`cell-${index}`}
                                     fill={getColor(index)}
@@ -265,6 +258,33 @@ export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {
                             <Tooltip />
                             <Scatter data={data} />
                         </ScatterChart>)}
+
+
+                    {type === "treemap" && (
+                        <Treemap
+                            data={processedData}
+                            dataKey={yKey}
+                            nameKey={xKey}
+                            aspectRatio={4 / 3}
+                            content={({ x, y, width, height, name, value, depth,index }) => (
+                                <g>
+                                    <rect x={x} y={y} width={width} height={height}
+                                       fill={getColor(index)}
+                                        stroke="#fff"
+                                        strokeWidth={2}
+                                    />
+                                    <Tooltip formatter={(v) => formatNumber(Number(v))} />
+                                    
+                                    {width > 50 && height > 30 && (
+                                        <text x={x + width / 2} y={y + height / 2}
+                                            textAnchor="middle" fill="#fff" fontSize={11}>
+                                            {name}
+                                        </text>
+                                    )}
+                                </g>
+                            )}
+                        />
+                    )}
 
                 </ResponsiveContainer>
             </div>

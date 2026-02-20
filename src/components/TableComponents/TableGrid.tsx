@@ -7,12 +7,16 @@ type Props = {
     dimensions: { width: number; height: number };
     columnWidths: Record<string, number>;
     onColumnResize: (col: string, delta: number) => void;
+
+    pivotRowKey?: string;
+    pivotColKey?: string;
+
 };
 
 const ROW_HEIGHT = 35;
 
 export default function TableGrid({
-    finalColumns, filteredRows, dimensions, columnWidths, onColumnResize,
+    finalColumns, filteredRows, dimensions, columnWidths, onColumnResize, pivotRowKey, pivotColKey
 }: Props) {
     const gridRef = useRef<Grid>(null);
     const resizingCol = useRef<string | null>(null);
@@ -59,7 +63,7 @@ export default function TableGrid({
             columnWidth={getColumnWidth}
             rowHeight={getRowHeight}
             width={dimensions.width}
-            height={Math.max(200, dimensions.height)}
+            height={Math.max(200, window.innerHeight - 200)}
         >
             {({ columnIndex, rowIndex, style }) => {
                 // Header row
@@ -68,6 +72,16 @@ export default function TableGrid({
                         return (
                             <div style={style} className="border-b border-r bg-gray-100 font-semibold flex items-center justify-center">
                                 #
+                            </div>
+                        );
+                    }
+                    if (columnIndex === 1 && pivotRowKey && pivotColKey) {
+                        return (
+                            <div style={style} className="border-b border-r bg-gray-100 font-semibold px-2 truncate relative">
+                                {pivotRowKey} \ {pivotColKey}
+                                <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400"
+                                    onMouseDown={(e) => { e.preventDefault(); startResize(e, finalColumns[columnIndex - 1]); }}
+                                />
                             </div>
                         );
                     }
@@ -80,6 +94,9 @@ export default function TableGrid({
                             />
                         </div>
                     );
+
+
+
                 }
 
                 // Index column
@@ -102,7 +119,8 @@ export default function TableGrid({
                         {cellValue}
                     </div>
                 );
-            }}
+            }
+            }
         </Grid>
     );
 }

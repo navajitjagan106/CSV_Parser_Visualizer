@@ -63,7 +63,12 @@ export default function PivotControls() {
       </div>
 
       {/* VALUE */}
+      <div>
+      <label className="block text-xs text-gray-500 mb-1">
+          Values
+        </label>
       <div className="flex flex-wrap gap-1">
+         
         {columns.map(c => (
           <button key={c}
             onClick={() => {
@@ -81,6 +86,7 @@ export default function PivotControls() {
             {c}
           </button>
         ))}
+      </div>
       </div>
 
       {/* AGG */}

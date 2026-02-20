@@ -8,6 +8,7 @@ export default function FilterControls() {
     const [activeMultiCol, setActiveMultiCol] = useState('');
     const [activeNullCol, setActiveNullCol] = useState('');
     const [multiSearch, setMultiSearch] = useState('');
+
     const selected = useSelector((s: RootState) => s.layout.columns)//selecting the selected columns
     const allcol = useSelector((s: RootState) => s.data.columns)//selecting the original columns from the data redux
     const topN = useSelector((s: RootState) => s.layout.topN);
@@ -16,6 +17,7 @@ export default function FilterControls() {
     const multiSelectFilters = useSelector((s: RootState) => s.layout.multiSelectFilters);
     const nullFilters = useSelector((s: RootState) => s.layout.nullFilters);
     const rows = useSelector((s: RootState) => s.data.rows);
+    const columnTypes = useSelector((s: RootState) => s.data.columnTypes);
 
     const dispatch = useDispatch()
 
@@ -68,6 +70,7 @@ export default function FilterControls() {
             setActiveNullCol('');
         }
     }, [selected, activeNullCol]);
+    const numericColumns = columns.filter(c => columnTypes[c] === 'numeric');
 
     return (
         <div className='space-y-2'>
@@ -105,16 +108,13 @@ export default function FilterControls() {
 
                         <select
                             className="w-full border rounded text-xs p-1"
-                            value={columns.includes(rangeCol) ? rangeCol : ''}
+                            value={numericColumns.includes(rangeCol) ? rangeCol : ''}
                             onChange={(e) => {
                                 const col = e.target.value;
-
                                 dispatch(setRangeColumn(col));
-
-
                             }}>
                             <option value="">Select Numeric Field</option>
-                            {columns.map(c => (
+                            {numericColumns.map(c => (
                                 <option key={c} value={c}>{c}</option>
                             ))}
                         </select>
@@ -162,7 +162,6 @@ export default function FilterControls() {
                                             dispatch(setRangeColumn(""));
                                         }
                                     }}
-
                                     className="w-full text-xs text-red-500 hover:underline"
                                 >
                                     Clear Range
@@ -206,7 +205,7 @@ export default function FilterControls() {
                                 className="flex-1 border rounded-md px-2 py-1 text-xs focus:ring-2 focus:ring-blue-400"
                             >
                                 <option value="">Select Metric</option>
-                                {columns.map((c) => (
+                                {numericColumns.map((c) => (
                                     <option key={c} value={c}>
                                         {c}
                                     </option>
@@ -240,7 +239,7 @@ export default function FilterControls() {
                     </div>
 
 
-                    {/* ── Multi-Select Filter ── */}
+                    {/*Multi-Select Filter*/}
                     <div className="border rounded-lg p-3 bg-gray-50 space-y-3">
                         <p className="text-xs font-semibold text-gray-600 uppercase">Multi-Select</p>
                         {/* Column tabs instead of dropdown */}
