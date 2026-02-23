@@ -10,13 +10,16 @@ type Props = {
 
     pivotRowKey?: string;
     pivotColKey?: string;
+    pivotValKey?: string
+    page:number
+    pageSize:number
 
 };
 
 const ROW_HEIGHT = 35;
 
 export default function TableGrid({
-    finalColumns, filteredRows, dimensions, columnWidths, onColumnResize, pivotRowKey, pivotColKey
+    finalColumns, filteredRows, dimensions, columnWidths, onColumnResize, pivotRowKey, pivotColKey,pivotValKey, page ,pageSize
 }: Props) {
     const gridRef = useRef<Grid>(null);
     const resizingCol = useRef<string | null>(null);
@@ -26,7 +29,7 @@ export default function TableGrid({
     const getColumnWidth = (index: number) => {
         if (index === 0) return 48;
         const col = finalColumns[index - 1];
-        return columnWidths[col] || 180;
+        return columnWidths[col] || 100;
     };
 
     //Row height based on the index ,0 represts the first column 
@@ -56,6 +59,7 @@ export default function TableGrid({
     };
 
     return (
+        
         <Grid
             ref={gridRef}
             columnCount={finalColumns.length + 1}
@@ -63,7 +67,7 @@ export default function TableGrid({
             columnWidth={getColumnWidth}
             rowHeight={getRowHeight}
             width={dimensions.width}
-            height={Math.max(200, window.innerHeight - 200)}
+            height={Math.max(200, dimensions.height)}
         >
             {({ columnIndex, rowIndex, style }) => {
                 // Header row
@@ -75,7 +79,7 @@ export default function TableGrid({
                             </div>
                         );
                     }
-                    if (columnIndex === 1 && pivotRowKey && pivotColKey) {
+                    if (columnIndex === 1 && pivotRowKey && pivotColKey&&pivotValKey ) {
                         return (
                             <div style={style} className="border-b border-r bg-gray-100 font-semibold px-2 truncate relative">
                                 {pivotRowKey} \ {pivotColKey}
@@ -95,13 +99,11 @@ export default function TableGrid({
                         </div>
                     );
 
-
-
                 }
 
                 // Index column
                 if (columnIndex === 0) {
-                    return <div style={style} className="border-r border-b text-center">{rowIndex}</div>;
+                    return <div style={style} className="border-r border-b text-center">{(page - 1) * pageSize + rowIndex}</div>;
                 }
 
                 // Data cell

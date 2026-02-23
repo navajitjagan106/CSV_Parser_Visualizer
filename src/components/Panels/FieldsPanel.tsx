@@ -88,10 +88,10 @@ export default function FieldsPanel() {
                                         if (chart.y === col) dispatch(setChart({ y: '' }));
 
                                         // Clear pivot fields if they used this column
-                                        if (pivot.row === col) dispatch(setPivot({ row: '' }));
-                                        if (pivot.column === col) dispatch(setPivot({ column: '' }));
+                                        if (pivot.row.includes(col)) dispatch(setPivot({ row: pivot.row.filter(v => v !== col) }));
+                                        if (pivot.column.includes(col)) dispatch(setPivot({ column: pivot.column.filter(v => v !== col) }));
                                         if (pivot.value.includes(col)) dispatch(setPivot({ value: pivot.value.filter(v => v !== col) }));
-                                        
+
                                         if (rangeCol === col) {
                                             dispatch(clearRangeFilter(col));
                                             dispatch(setRangeColumn(''));

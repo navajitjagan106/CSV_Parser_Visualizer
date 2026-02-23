@@ -14,7 +14,6 @@ function App() {
     <div className="h-screen flex flex-col bg-gray-100">
       <header className="h-12 bg-white border-b px-4 flex items-center justify-between">
 
-
         <h2 className="font-semibold text-gray-700" >CSV PARSER AND VISUALIZER</h2>
 
         {/* Header */}
@@ -50,7 +49,7 @@ function App() {
         {/* Report Area */}
         <main className="flex-1 min-w-0 bg-gray-50 m-2 rounded-lg shadow-sm border p-3 overflow-hidden">
 
-          <p className="text-sm font-medium mb-2 text-gray-600">
+          <p className=" font-medium mb-2 text-gray-600">
             Report View
           </p>
 

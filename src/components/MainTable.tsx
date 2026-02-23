@@ -16,10 +16,27 @@ export default function MainTable() {
     }>({ column: null, direction: null });
     const [filterText, setFilterText] = useState(''); // for text filtering
 
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(50); // rows per page
 
-    const { data, columns, finalColumns, finalRows, allChartData, chart,pivot } = useTableData();
+    const { data, columns, finalColumns, finalRows, allChartData, chart, pivot } = useTableData();
     const chartData = allChartData ? allChartData[chart.agg] : [];
+const gridWrapperRef = useRef<HTMLDivElement>(null);
 
+useEffect(() => {
+    const observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+            setDimensions(prev => ({
+                ...prev,
+                height: entry.contentRect.height,
+            }));
+        }
+    });
+    if (gridWrapperRef.current) {
+        observer.observe(gridWrapperRef.current);
+    }
+    return () => observer.disconnect();
+}, []);
     //Calculates column widths for each column 
     useEffect(() => {
         if (!columns.length) return;
@@ -33,11 +50,15 @@ export default function MainTable() {
             return init;
         });
     }, [finalColumns, columns]);
+    
+    useEffect(() => {
+        setPage(1);
+    }, [filterText, sortConfig, pivot, pageSize]);
 
     //table resizes automatically based on the reference's width
     useEffect(() => {
         const updateDimensions = () => {
-            if (containerRef.current ) {
+            if (containerRef.current) {
                 setDimensions({
                     width: containerRef.current.clientWidth,
                     height: containerRef.current.clientHeight
@@ -115,6 +136,12 @@ export default function MainTable() {
         );
     }, [sortedRows, filterText, finalColumns]);
 
+    const totalPages = Math.ceil(filteredRows.length / pageSize);
+
+    const pagedRows = useMemo(() => {
+        const start = (page - 1) * pageSize;
+        return filteredRows.slice(start, start + pageSize);
+    }, [filteredRows, page, pageSize]);
 
     if (!data.length)
         return (
@@ -134,10 +161,10 @@ export default function MainTable() {
     return (
         <div
             ref={containerRef}
-            className="flex flex-col gap-2 h-screen border border-gray-400">
-            <div className="flex-1 overflow-auto scrollbar-hide">
+            className="flex flex-col gap-2 h-full min-h-0 border border-gray-400">
+            <div className="flex-1 overflow-auto ">
                 {chartEnabled && chartData.length > 0 && (
-                    <div className="h-[420px] border-b bg-white p-3  ">
+                    <div className="h-[420px] border-b bg-white p-3 ">
                         {/* MAIN CHART */}
                         <ChartPanel
                             data={chartData}
@@ -170,16 +197,54 @@ export default function MainTable() {
                         totalCount={finalRows.length}
                         columnCount={finalColumns.length}
                     />
+                    <div className="flex items-center justify-between px-3 py-2 border-t bg-gray-50 text-sm">
+                        <div>
+                            Page {page} of {totalPages} ({filteredRows.length} rows)
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                disabled={page === 1}
+                                onClick={() => setPage(p => p - 1)}
+                                className="px-2 py-1 border rounded disabled:opacity-50"
+                            >
+                                ◀ Prev
+                            </button>
+                            <button
+                                disabled={page === totalPages}
+                                onClick={() => setPage(p => p + 1)}
+                                className="px-2 py-1 border rounded disabled:opacity-50"
+                            >
+                                Next ▶
+                            </button>
+                            <select
+                                value={pageSize}
+                                onChange={e => {
+                                    setPageSize(Number(e.target.value));
+                                    setPage(1);
+                                }}
+                                className="border rounded px-2 py-1"
+                            >
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                                <option value={250}>250</option>
+                                <option value={500}>500</option>
+                            </select>
 
-                    <div className="flex-1 min-h-0 overflow-hidden">
+                        </div>
+                    </div>
+                    <div ref={gridWrapperRef} className="flex-1 min-h-0 overflow-hidden">
                         <TableGrid
                             finalColumns={finalColumns}
-                            filteredRows={filteredRows}
+                            filteredRows={pagedRows}
                             dimensions={dimensions}
                             columnWidths={columnWidths}
                             onColumnResize={handleColumnResize}
-                            pivotRowKey={pivot.enabled ? pivot.row : undefined}  // add this
-                            pivotColKey={pivot.enabled ? pivot.column : undefined}  // add this
+                            pivotRowKey={pivot.enabled ? pivot.row.join(' | ') : undefined}
+                            pivotColKey={pivot.enabled ? pivot.column.join(' | ') : undefined}
+                            pivotValKey={pivot.enabled?pivot.value.join(''):undefined}
+                            page={page}
+                            pageSize={pageSize}
                         />
                     </div>
                 </div>

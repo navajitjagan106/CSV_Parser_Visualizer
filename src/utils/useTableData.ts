@@ -1,4 +1,4 @@
-import  { useMemo } from 'react'
+import { useMemo } from 'react'
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { pivotData } from './pivotData';
@@ -76,10 +76,22 @@ export function useTableData() {
 
     const pivotResult = useMemo(() => {
         if (!pivot.enabled) return null;
-        const { row, column, value } = pivot;
-        if (!row || !column || !value.length) return null;
-        if (!selected.includes(row) || !selected.includes(column) || (!value.every(v => selected.includes(v)))) return null;
-        return pivotData(filteredBaseData, row, column, value, pivot.agg);
+        const { row, column, value, agg, percentMode } = pivot;
+
+        // row and column are now string[]
+        if (!row.length || !column.length || !value.length) return null;
+        if (!row.every((r: string) => selected.includes(r))) return null;
+        if (!column.every((c: string) => selected.includes(c))) return null;
+        if (!value.every((v: string) => selected.includes(v))) return null;
+
+        return pivotData(
+            filteredBaseData,
+            row,
+            column,
+            value,
+            agg,
+            percentMode || undefined
+        );
     }, [filteredBaseData, pivot, selected]);
 
     // memo function to calculate data for charts 
@@ -96,14 +108,14 @@ export function useTableData() {
         return columns;
     }, [pivotResult, columns]);
 
-     const finalRows = useMemo(() => {
+    const finalRows = useMemo(() => {
         if (pivotResult?.length) {
             return pivotResult;
         }
         return filteredBaseData;
     }, [pivotResult, filteredBaseData]);
-    
 
-return { data, columns, finalColumns, finalRows, allChartData, chart ,pivot};
+
+    return { data, columns, finalColumns, finalRows, allChartData, chart, pivot };
 }
 
