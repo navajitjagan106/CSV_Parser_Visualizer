@@ -1,13 +1,13 @@
 import { useState, useMemo } from "react";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Tooltip, XAxis, YAxis, ResponsiveContainer, Cell, Legend, AreaChart, Area, ScatterChart, Scatter } from "recharts";
 import { Treemap } from "recharts";
-
+import { ChartAggregation } from "../../store/layoutSlice";
 interface Props {
     data: any[];
     xKey: string;
     yKey: string;
     type: string;
-    agg: "sum" | "avg" | "min" | "max" | "count";
+    agg:ChartAggregation;
 }
 
 export default function ChartPanel({ data, xKey, yKey, type, agg }: Props) {

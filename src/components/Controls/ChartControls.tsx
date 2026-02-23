@@ -25,7 +25,7 @@ export default function ChartControls() {
     { icon: FiPieChart, type: "pie", label: "Pie" },
     { icon: FiActivity, type: "area", label: "Area" },
     { icon: LuChartScatter, type: "scatter", label: "Scatter" },
-    { icon: TbChartTreemap, type: "treemap", label: "Tree" }
+    { icon: TbChartTreemap, type: "treemap", label: "Tree" },
   ];
 
   const chartEnabled = Boolean(chart.type || chart.x || chart.y); //boolean varible to chk whether chart enabled or not
@@ -105,7 +105,7 @@ export default function ChartControls() {
             </select>
           </div>
 
-          {/* Axis Selection */}
+          {/*Axis Selection */}
 
           <div className="space-y-2 text-sm">
             <div>
@@ -125,7 +125,6 @@ export default function ChartControls() {
 
             <div>
               <label className="text-xs font-semibold text-gray-600 block mb-1">Y-Axis (Values)</label>
-
               <select
                 className="w-full border rounded p-1"
                 value={chart.y}

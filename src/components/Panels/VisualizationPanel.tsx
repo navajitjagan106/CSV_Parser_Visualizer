@@ -28,13 +28,13 @@ export default function VisualizationPanel() {
 
       <div className="border-t my-4"></div>
 
-      {/*Filetes to filter the table */}
+      {/*Filters to filter the table */}
      
       <FilterControls/>
       <div className="border-t my-4"></div>
 
 
-      {/*Table section for table mosdes such as pivot */}
+      {/*Table section for table modes such as pivot */}
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-2">
         Tables
       </p>

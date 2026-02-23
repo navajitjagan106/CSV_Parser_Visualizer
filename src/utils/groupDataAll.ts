@@ -8,6 +8,7 @@ interface GroupDataResult {
   count: GroupedData[];
   countDistinct: GroupedData[];
   median: GroupedData[];
+  stddev: GroupedData[];
   percent: GroupedData[];
 }
 
@@ -17,14 +18,14 @@ export function groupDataAll(
   yKey: string
 ): GroupDataResult {
   if (!rows.length) {
-    return { sum: [] as any, avg: [] as any, min: [] as any, max: [] as any, count: [] as any, countDistinct: [] as any, median: [] as any, percent: [] as any };
+    return { sum: [] as any, avg: [] as any, min: [] as any, max: [] as any, count: [] as any, countDistinct: [] as any, median: [] as any, stddev: [] as any, percent: [] as any };
   }
   type Bucket = {
     sum: number;
     count: number;
     min: number;
     max: number;
-    values: number[];        
+    values: number[];
     distinct: Set<any>;
   };
 
@@ -32,7 +33,6 @@ export function groupDataAll(
 
   rows.forEach((row) => {
     const x = String(row[xKey] ?? "Unknown");
-
     const y = Number(String(row[yKey] ?? 0).replace(/,/g, ""));
 
     if (isNaN(y)) {
@@ -69,7 +69,9 @@ export function groupDataAll(
     count: [],
     countDistinct: [],
     median: [],
-    percent: []
+    stddev: [],
+    percent: [],
+
   };
   let totalSum = 0;
 
@@ -83,15 +85,10 @@ export function groupDataAll(
     const sorted = [...b.values].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
 
-    const median =
-      sorted.length % 2 === 0
-        ? (sorted[mid - 1] + sorted[mid]) / 2
-        : sorted[mid];
+    const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 
     // Percent of total
-    const percent = totalSum
-      ? (b.sum / totalSum) * 100
-      : 0;
+    const percent = totalSum ? (b.sum / totalSum) * 100 : 0;
 
     result.sum.push({ [xKey]: key, [yKey]: b.sum });
 
@@ -120,6 +117,10 @@ export function groupDataAll(
       [xKey]: key,
       [yKey]: Number(percent.toFixed(2)),
     });
+
+    const mean = b.sum / b.count;
+    const stddev = Math.sqrt(b.values.reduce((a, v) => a + Math.pow(v - mean, 2), 0) / b.count);
+    result.stddev.push({ [xKey]: key, [yKey]: +stddev.toFixed(2) });
   });
 
 

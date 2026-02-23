@@ -1,5 +1,5 @@
 type PivotRow = Record<string, any>;
-type Agg = "sum" | "avg" | "min" | "max" | "count";
+type Agg = "sum" | "avg" | "min" | "max" | "count" | "countDistinct" | "median" | "stddev";
 
 function aggregate(values: number[], agg: Agg): number {
     if (!values.length) return 0;
@@ -8,49 +8,180 @@ function aggregate(values: number[], agg: Agg): number {
         case "min": return Math.min(...values);
         case "max": return Math.max(...values);
         case "count": return values.length;
+        //case "countDistinct": return new Set(values).size
+        case "median": {
+            const sorted = [...values].sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 === 0
+                ? (sorted[mid - 1] + sorted[mid]) / 2
+                : sorted[mid];
+        }
+        case "stddev": {
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length
+            return Math.sqrt(variance)
+
+        }
+        case "sum": return values.reduce((a, b) => a + b, 0);
+
         default: return values.reduce((a, b) => a + b, 0);
     }
 }
 export function pivotData(
     rows: PivotRow[],
-    rowKey: string,
-    colKey: string,
+    rowKey: string[],
+    colKey: string[],
     valueKey: string[],
-    agg: "sum" | "avg" | "min" | "max" | "count"
-) {
-    const map: Record<string, Record<string, Record<string, number[]>>> = {};
+    agg: Agg,
+    percentMode?: 'row' | 'col' | 'grand'
 
-    //const map: Record<string, Record<string, Record<string, number[]>>> = {};
+) {
+    const map: Record<string, Record<string, Record<string, { nums: number[]; texts: string[] }>>> = {};
+    const rawMap: Record<string, Record<string, Record<string, any[]>>> = {};
+
 
     rows.forEach((r) => {
-        const rowVal = String(r[rowKey] ?? "Unknown");
-        const colVal = String(r[colKey] ?? "Unknown");
+        const rowParts = rowKey.map(rk => String(r[rk] ?? ''));
+        const rowVal = rowParts.join(' | ');
+        const colVal = colKey.map(ck => String(r[ck] ?? '').trim()).join(' | ');
 
         if (!map[rowVal]) map[rowVal] = {};
         if (!map[rowVal][colVal]) map[rowVal][colVal] = {};
+        if (!rawMap[rowVal]) rawMap[rowVal] = {};
+        if (!rawMap[rowVal][colVal]) rawMap[rowVal][colVal] = {};
 
         valueKey.forEach(vk => {
-            const num = Number(String(r[vk]).replace(/,/g, "")) || 0;
-            if (!map[rowVal][colVal][vk]) map[rowVal][colVal][vk] = [];
-            map[rowVal][colVal][vk].push(num);
+
+            if (!map[rowVal][colVal][vk]) {
+                map[rowVal][colVal][vk] = { nums: [], texts: [] };
+            }
+
+            const raw = r[vk];
+            const str = String(raw ?? '').trim();
+            const num = Number(str.replace(/,/g, ''));
+
+            if (!isNaN(num) && str !== '') {
+                map[rowVal][colVal][vk].nums.push(num);
+            } else if (str !== '') {
+                map[rowVal][colVal][vk].texts.push(str);
+            }
+
+            if (!rawMap[rowVal][colVal][vk]) {
+                rawMap[rowVal][colVal][vk] = [];
+            }
+
+            rawMap[rowVal][colVal][vk].push(raw);
+
         });
     });
 
-
-    const result: PivotRow[] = [];
-
+    const rawResult: PivotRow[] = [];
     Object.entries(map).forEach(([row, cols]) => {
-        const obj: PivotRow = { [rowKey]: row };
+
+        const obj: PivotRow = {};
+
+        const rowParts = row.split(' | ');
+
+        rowKey.forEach((rk, i) => {
+            obj[rk] = rowParts[i] ?? '';
+        });
+
 
         Object.entries(cols).forEach(([col, values]) => {
-           valueKey.forEach(vk=>{
-            const colName=valueKey.length>1?`${col}_${vk}`:col;
-            obj[colName]=aggregate(values[vk]||[],agg)
-           })
-        });
+            valueKey.forEach(vk => {
+                const colName = valueKey.length > 1 ? `${col}_${vk}` : col;
+                if (agg === 'countDistinct') {
+                    const rawVals = rawMap[row]?.[col]?.[vk] || [];
+                    obj[colName] = new Set(
+                        rawVals.filter(v => v !== null && v !== undefined && v !== '')
+                    ).size;
+                } else {
+                    const cell = values[vk];
 
-        result.push(obj);
+                    if (!cell) {
+                        obj[colName] = '';
+                    }
+                    else if (cell.nums.length) {
+                        obj[colName] = aggregate(cell.nums, agg);
+                    }
+                    else if (cell.texts.length) {
+                        // Show unique text values
+                        obj[colName] = Array.from(new Set(cell.texts)).join(', ')
+                    }
+                    else {
+                        obj[colName] = '';
+                    }
+                }
+            })
+        });
+        rawResult.push(obj);
     });
 
-    return result;
+    if (!percentMode) return rawResult;
+
+    const getRowId = (row: PivotRow) =>
+        rowKey.map(k => row[k]).join(' | ');
+
+    const allCols = rawResult.length
+        ? Object.keys(rawResult[0]).filter(k => !rowKey.includes(k))
+        : [];
+
+    const grandTotals: Record<string, number> = {};
+
+    allCols.forEach(col => {
+        grandTotals[col] = rawResult.reduce(
+            (sum, row) => sum + (Number(row[col]) || 0),
+            0
+        );
+    });
+
+    const rowTotals: Record<string, number> = {};
+
+    rawResult.forEach(row => {
+        const rowId = getRowId(row);
+
+        rowTotals[rowId] = allCols.reduce(
+            (sum, col) => sum + (Number(row[col]) || 0),
+            0
+        );
+    });
+
+    const colTotals: Record<string, number> = {};
+
+    allCols.forEach(col => {
+        colTotals[col] = rawResult.reduce(
+            (sum, row) => sum + (Number(row[col]) || 0),
+            0
+        );
+    });
+
+    return rawResult.map(row => {
+        const newRow: PivotRow = { ...row };
+
+        const rowId = getRowId(row);
+
+        allCols.forEach(col => {
+            const val = Number(row[col]) || 0;
+
+            if (percentMode === 'grand') {
+                newRow[col] = grandTotals[col]
+                    ? +((val / grandTotals[col]) * 100).toFixed(2)
+                    : 0;
+
+            } else if (percentMode === 'row') {
+                const rt = rowTotals[rowId];
+
+                newRow[col] = rt
+                    ? +((val / rt) * 100).toFixed(2)
+                    : 0;
+
+            } else if (percentMode === 'col') {
+                newRow[col] = colTotals[col]
+                    ? +((val / colTotals[col]) * 100).toFixed(2)
+                    : 0;
+            }
+        });
+
+        return newRow;
+    });
 }
