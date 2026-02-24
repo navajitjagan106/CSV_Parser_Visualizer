@@ -41,8 +41,7 @@ export function pivotData(
 
 
     rows.forEach((r) => {
-        const rowParts = rowKey.map(rk => String(r[rk] ?? ''));
-        const rowVal = rowParts.join(' | ');
+        const rowVal = rowKey.map(rk => String(r[rk] ?? '')).join(' | ');
         const colVal = colKey.map(ck => String(r[ck] ?? '').trim()).join(' | ');
 
         if (!map[rowVal]) map[rowVal] = {};
@@ -73,20 +72,32 @@ export function pivotData(
             rawMap[rowVal][colVal][vk].push(raw);
 
         });
+
     });
 
+
+    // Collect all possible colNames first 
+    const allColNames = new Set<string>();
+    Object.values(map).forEach(cols => {
+        Object.keys(cols).forEach(col => {
+            valueKey.forEach(vk => {
+                const colName = valueKey.length > 1 ? `${col}_${vk}` : col;
+                allColNames.add(colName);
+            });
+        });
+    });
+
+    // Single loop - initialize all cols then fill in values
     const rawResult: PivotRow[] = [];
     Object.entries(map).forEach(([row, cols]) => {
-
         const obj: PivotRow = {};
-
         const rowParts = row.split(' | ');
+        rowKey.forEach((rk, i) => { obj[rk] = rowParts[i] ?? ''; });
 
-        rowKey.forEach((rk, i) => {
-            obj[rk] = rowParts[i] ?? '';
-        });
+        // Initialize all columns to empty
+        allColNames.forEach(colName => { obj[colName] = ''; });
 
-
+        // Fill in actual values
         Object.entries(cols).forEach(([col, values]) => {
             valueKey.forEach(vk => {
                 const colName = valueKey.length > 1 ? `${col}_${vk}` : col;
@@ -97,22 +108,12 @@ export function pivotData(
                     ).size;
                 } else {
                     const cell = values[vk];
-
-                    if (!cell) {
-                        obj[colName] = '';
-                    }
-                    else if (cell.nums.length) {
-                        obj[colName] = aggregate(cell.nums, agg);
-                    }
-                    else if (cell.texts.length) {
-                        // Show unique text values
-                        obj[colName] = Array.from(new Set(cell.texts)).join(', ')
-                    }
-                    else {
-                        obj[colName] = '';
-                    }
+                    if (!cell) { obj[colName] = ''; }
+                    else if (cell.nums.length) { obj[colName] = aggregate(cell.nums, agg); }
+                    else if (cell.texts.length) { obj[colName] = Array.from(new Set(cell.texts)).join(', '); }
+                    else { obj[colName] = ''; }
                 }
-            })
+            });
         });
         rawResult.push(obj);
     });

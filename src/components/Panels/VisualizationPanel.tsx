@@ -58,8 +58,6 @@ export default function VisualizationPanel() {
 
       <div className="border-t my-4"></div>
 
-        
-
       <FieldsPanel/>
 
       <div className="border-t my-4"></div>

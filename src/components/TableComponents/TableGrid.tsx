@@ -7,19 +7,18 @@ type Props = {
     dimensions: { width: number; height: number };
     columnWidths: Record<string, number>;
     onColumnResize: (col: string, delta: number) => void;
-
     pivotRowKey?: string;
     pivotColKey?: string;
     pivotValKey?: string
-    page:number
-    pageSize:number
+    page: number
+    pageSize: number
 
 };
 
 const ROW_HEIGHT = 35;
 
 export default function TableGrid({
-    finalColumns, filteredRows, dimensions, columnWidths, onColumnResize, pivotRowKey, pivotColKey,pivotValKey, page ,pageSize
+    finalColumns, filteredRows, dimensions, columnWidths, onColumnResize, pivotRowKey, pivotColKey, pivotValKey, page, pageSize
 }: Props) {
     const gridRef = useRef<Grid>(null);
     const resizingCol = useRef<string | null>(null);
@@ -29,7 +28,7 @@ export default function TableGrid({
     const getColumnWidth = (index: number) => {
         if (index === 0) return 48;
         const col = finalColumns[index - 1];
-        return columnWidths[col] || 100;
+        return columnWidths[col] || 180;
     };
 
     //Row height based on the index ,0 represts the first column 
@@ -58,8 +57,20 @@ export default function TableGrid({
         document.addEventListener("mouseup", stopResize);
     };
 
+    const isSameAsAbove = (
+        rows: Record<string, any>[],
+        rowIndex: number,
+        key: string
+    ) => {
+        if (rowIndex === 0) return false;
+
+        return rows[rowIndex][key] === rows[rowIndex - 1][key];
+    };
+
+    
+
     return (
-        
+
         <Grid
             ref={gridRef}
             columnCount={finalColumns.length + 1}
@@ -79,18 +90,9 @@ export default function TableGrid({
                             </div>
                         );
                     }
-                    if (columnIndex === 1 && pivotRowKey && pivotColKey&&pivotValKey ) {
-                        return (
-                            <div style={style} className="border-b border-r bg-gray-100 font-semibold px-2 truncate relative">
-                                {pivotRowKey} \ {pivotColKey}
-                                <div className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400"
-                                    onMouseDown={(e) => { e.preventDefault(); startResize(e, finalColumns[columnIndex - 1]); }}
-                                />
-                            </div>
-                        );
-                    }
+
                     return (
-                        <div style={style} className="border-b border-r bg-gray-100 font-semibold px-2 truncate relative">
+                        <div style={style} className="border-b border-r bg-gray-100 hover:bg-blue-50 font-semibold px-2 truncate relative">
                             {finalColumns[columnIndex - 1]}
                             <div
                                 className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400"
@@ -110,15 +112,36 @@ export default function TableGrid({
                 const row = filteredRows[rowIndex - 1];
                 const col = finalColumns[columnIndex - 1];
                 const cellValue = row[col];
+
+                // For compact layout (only for first 2 pivot row fields)
+                let displayValue = cellValue;
+
+                if (pivotRowKey && pivotColKey && pivotValKey && columnIndex <= 2) {
+                    const rowKeys = pivotRowKey.split(" | ");
+                    const currentKey = rowKeys[columnIndex - 1];
+
+                    if (currentKey) {
+                        if (isSameAsAbove(filteredRows, rowIndex - 1, currentKey)) {
+                            displayValue = "";
+                        }
+                    }
+                }
                 const isNegative = !isNaN(Number(cellValue)) && Number(cellValue) < 0;
 
                 return (
                     <div
                         style={style}
-                        className={`border-r border-b px-2 truncate ${isNegative ? 'text-red-600 font-medium' : ''}`}
+                        className={`border-r border-b px-2 truncate hover:bg-gray-100  ${isNegative ? 'text-red-600 font-medium' : ''}`}
                         title={String(cellValue ?? '')}
                     >
-                        {cellValue}
+                        <span
+                            style={{
+                                paddingLeft:
+                                    pivotRowKey && columnIndex === 2 ? "16px" : "0px",
+                            }}
+                        >
+                            {displayValue}
+                        </span>
                     </div>
                 );
             }
