@@ -102,11 +102,15 @@ export function useTableData() {
 
     //another memo function which checks whether pivot is selected , storees pivot columns or the original selected columns
     const finalColumns = useMemo(() => {
-        if (pivotResult?.length) {
-            return Object.keys(pivotResult[0]);
-        }
-        return columns;
-    }, [pivotResult, columns]);
+        if (!pivotResult?.length) return columns;
+
+        const rowCols = pivot.row; // dimensions
+        const dataCols = Object.keys(pivotResult[0]).filter(
+            k => !rowCols.includes(k)
+        );
+
+        return [...rowCols, ...dataCols];
+    }, [pivotResult, columns, pivot.row]);
 
     const finalRows = useMemo(() => {
         if (pivotResult?.length) {

@@ -38,7 +38,7 @@ export function groupDataAll(
     if (isNaN(y)) {
       console.warn(`Invalid number for ${yKey}: ${row[yKey]} (row: ${JSON.stringify(row)})`);
       return;
-    }
+    } 
 
     if (!map.has(x)) {
       map.set(x, {

@@ -20,23 +20,25 @@ export default function MainTable() {
     const [pageSize, setPageSize] = useState(50); // rows per page
 
     const { data, columns, finalColumns, finalRows, allChartData, chart, pivot } = useTableData();
-    const chartData = allChartData ? allChartData[chart.agg] : [];
-const gridWrapperRef = useRef<HTMLDivElement>(null);
 
-useEffect(() => {
-    const observer = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-            setDimensions(prev => ({
-                ...prev,
-                height: entry.contentRect.height,
-            }));
+    const chartData = allChartData ? allChartData[chart.agg] : [];
+    const gridWrapperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const observer = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                setDimensions(prev => ({
+                    ...prev,
+                    height: entry.contentRect.height,
+                }));
+            }
+        });
+        if (gridWrapperRef.current) {
+            observer.observe(gridWrapperRef.current);
         }
-    });
-    if (gridWrapperRef.current) {
-        observer.observe(gridWrapperRef.current);
-    }
-    return () => observer.disconnect();
-}, []);
+        return () => observer.disconnect();
+    }, []);
+
     //Calculates column widths for each column 
     useEffect(() => {
         if (!columns.length) return;
@@ -50,7 +52,7 @@ useEffect(() => {
             return init;
         });
     }, [finalColumns, columns]);
-    
+
     useEffect(() => {
         setPage(1);
     }, [filterText, sortConfig, pivot, pageSize]);
@@ -84,7 +86,7 @@ useEffect(() => {
 
     const handleExportCSV = () => {
         const headers = finalColumns.join(',');
-        const rows = finalRows.map(row =>
+        const rows = displayRows.map(row =>
             finalColumns.map(col => {
                 const val = row[col];
                 return typeof val === 'string' && (val.includes(',') || val.includes('"'))
@@ -99,7 +101,7 @@ useEffect(() => {
     };
 
     const handleExportJSON = () => {
-        const blob = new Blob([JSON.stringify(finalRows, null, 2)], { type: 'application/json' });
+        const blob = new Blob([JSON.stringify(displayRows, null, 2)], { type: 'application/json' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = `export_${new Date().toISOString().slice(0, 10)}.json`; a.click();
@@ -110,12 +112,69 @@ useEffect(() => {
     const handleColumnResize = (col: string, delta: number) => {
         setColumnWidths(prev => ({ ...prev, [col]: Math.max(120, (prev[col] || 180) + delta) }));
     };
+    const displayColumns = useMemo(() => {
+  if (!pivot.enabled) return finalColumns;
+
+  if (finalColumns.includes("Total")) return finalColumns;
+
+  return [...finalColumns, "Total"];
+}, [finalColumns, pivot.enabled]);
+
+
+    const rowsWithTotals = useMemo(() => {
+        if (!pivot.enabled) return finalRows;
+
+        if (!finalRows.length) return finalRows;
+
+        const totalRow: Record<string, any> = {};
+
+        // Initialize
+        finalColumns.forEach(col => {
+            totalRow[col] = 0;
+        });
+
+        // Label first column as "Total"
+        totalRow[finalColumns[0]] = "Total";
+
+        const newRows = finalRows.map(row => {
+            let rowTotal = 0;
+            const newRow = { ...row };
+
+            finalColumns.forEach(col => {
+                const val = Number(row[col]);
+
+                if (!isNaN(val)) {
+                    rowTotal += val;
+                    totalRow[col] += val;
+                }
+            });
+
+            // Add Row Total column
+            newRow["Total"] = rowTotal;
+
+            return newRow;
+        });
+
+        // Add grand total value
+        let grand = 0;
+        finalColumns.forEach(col => {
+            if (typeof totalRow[col] === "number") {
+                grand += totalRow[col];
+            }
+        });
+
+        totalRow["Total"] = grand;
+
+        return [...newRows, totalRow];
+    }, [finalRows, finalColumns, pivot.enabled]);
+
+    const displayRows = pivot.enabled ? rowsWithTotals : finalRows;
 
     //  APPLY SORTING TO FINAL ROWS
     const sortedRows = useMemo(() => {
-        if (!sortConfig.column || !sortConfig.direction) return finalRows;
+        if (!sortConfig.column || !sortConfig.direction) return displayRows;
 
-        return [...finalRows].sort((a, b) => {
+        return [...displayRows].sort((a, b) => {
             const aVal = Number(a[sortConfig.column!]);
             const bVal = Number(b[sortConfig.column!]);
             if (isNaN(aVal) || isNaN(bVal)) return 0;
@@ -123,7 +182,7 @@ useEffect(() => {
                 ? aVal - bVal
                 : bVal - aVal;
         });
-    }, [finalRows, sortConfig]);
+    }, [displayRows, sortConfig]);
 
     //  APPLY FILTERING on sorted rows
     const filteredRows = useMemo(() => {
@@ -194,9 +253,51 @@ useEffect(() => {
 
                     <TableStatus
                         filteredCount={filteredRows.length}
-                        totalCount={finalRows.length}
+                        totalCount={displayRows.length}
                         columnCount={finalColumns.length}
                     />
+
+                    {pivot.enabled &&
+    pivot.row.length>0 &&
+    pivot.column.length>0 &&
+    pivot.value.length>0 && (
+
+        <div className="flex flex-wrap items-center gap-6 px-3 py-2 bg-blue-50 border-t border-b border-blue-200 text-sm">
+
+            {/* Rows */}
+            <div>
+                <span className="font-semibold text-blue-700">Rows:</span>{" "}
+                {pivot.row.length
+                    ? pivot.row.join(" → ")
+                    : "None"}
+            </div>
+
+            {/* Columns */}
+            <div>
+                <span className="font-semibold text-green-700">Columns:</span>{" "}
+                {pivot.column.length
+                    ? pivot.column.join(" → ")
+                    : "None"}
+            </div>
+
+            {/* Values */}
+            <div>
+                <span className="font-semibold text-purple-700">Values:</span>{" "}
+                {pivot.value.length
+                    ? `${pivot.agg.toUpperCase()}(${pivot.value.join(", ")})`
+                    : "None"}
+            </div>
+
+            {/* Percent Mode */}
+            {pivot.percentMode && (
+                <div>
+                    <span className="font-semibold text-orange-700">% Mode:</span>{" "}
+                    {pivot.percentMode}
+                </div>
+            )}
+        </div>
+)}
+
                     <div className="flex items-center justify-between px-3 py-2 border-t bg-gray-50 text-sm">
                         <div>
                             Page {page} of {totalPages} ({filteredRows.length} rows)
@@ -233,16 +334,19 @@ useEffect(() => {
 
                         </div>
                     </div>
+
+
+
                     <div ref={gridWrapperRef} className="flex-1 min-h-0 overflow-hidden">
                         <TableGrid
-                            finalColumns={finalColumns}
+                            finalColumns={displayColumns}
                             filteredRows={pagedRows}
                             dimensions={dimensions}
                             columnWidths={columnWidths}
                             onColumnResize={handleColumnResize}
                             pivotRowKey={pivot.enabled ? pivot.row.join(' | ') : undefined}
                             pivotColKey={pivot.enabled ? pivot.column.join(' | ') : undefined}
-                            pivotValKey={pivot.enabled?pivot.value.join(''):undefined}
+                            pivotValKey={pivot.enabled ? pivot.value.join('') : undefined}
                             page={page}
                             pageSize={pageSize}
                         />
