@@ -1,63 +1,83 @@
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import ChartPanel from "./Panels/ChartPanel";
 import TableToolbar from './TableComponents/TableToolbar';
 import TableGrid from './TableComponents/TableGrid';
 import TableStatus from './TableComponents/TableStatus';
 import { useTableData } from '../utils/useTableData';
+import { flattenTree } from '../utils/flattenTree';
+import { buildColHeaders } from '../utils/buildColHeaders';
 
 export default function MainTable() {
-    const containerRef = useRef<HTMLDivElement>(null);//ref to the entire container for height & width size refactoring
-    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });//to set dimensions for the grid acc to window size
-    const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});//varibale colimn width like excel
-    const [sortCol, setSortCol] = useState('');//selecting a column using which we can ssort stuff
-    const [sortConfig, setSortConfig] = useState<{   //asc or desc
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+    const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+    const [sortCol, setSortCol] = useState('');
+    const [sortConfig, setSortConfig] = useState<{
         column: string | null;
         direction: 'asc' | 'desc' | null;
     }>({ column: null, direction: null });
-    const [filterText, setFilterText] = useState(''); // for text filtering
-
+    const [filterText, setFilterText] = useState('');
     const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(50); // rows per page
+    const [pageSize, setPageSize] = useState(50);
 
-    const { data, columns, finalColumns, finalRows, allChartData, chart, pivot } = useTableData();
+    // ── Hierarchy collapse state ──────────────────────────────────────────────
+    const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+    const toggleCollapsed = useCallback((path: string) => {
+        setCollapsed(prev => {
+            const next = new Set(prev);
+            if (next.has(path)) next.delete(path);
+            else next.add(path);
+            return next;
+        });
+    }, []);
+
+    const { data, columns, finalColumns, finalRows, allChartData, chart, pivot, pivotTree, pivotDataCols } = useTableData();
 
     const chartData = allChartData ? allChartData[chart.agg] : [];
     const gridWrapperRef = useRef<HTMLDivElement>(null);
 
+    const isPivotReady = pivot.enabled && pivot.row.length > 0 && pivot.column.length > 0 && pivot.value.length > 0;
+    const hasHierarchy = isPivotReady && pivot.row.length > 1 && pivotTree.length > 0;
+
+    // ── Column header groups ──────────────────────────────────────────────────
+    const colHeaders = useMemo(() => {
+        if (!isPivotReady) return [];
+        return buildColHeaders(finalColumns, pivot.row);
+    }, [finalColumns, pivot.row, isPivotReady]);
+
+    // ── Flatten tree into visible rows ────────────────────────────────────────
+    const hierarchyRows = useMemo(() => {
+        if (!hasHierarchy) return null;
+        return flattenTree(pivotTree, collapsed, pivot.row, pivotDataCols, pivot.agg);
+    }, [pivotTree, collapsed, pivot.row, pivotDataCols, pivot.agg, hasHierarchy]);
+
     useEffect(() => {
         const observer = new ResizeObserver((entries) => {
             for (const entry of entries) {
-                setDimensions(prev => ({
-                    ...prev,
-                    height: entry.contentRect.height,
-                }));
+                setDimensions(prev => ({ ...prev, height: entry.contentRect.height }));
             }
         });
-        if (gridWrapperRef.current) {
-            observer.observe(gridWrapperRef.current);
-        }
+        if (gridWrapperRef.current) observer.observe(gridWrapperRef.current);
         return () => observer.disconnect();
     }, []);
 
-    //Calculates column widths for each column 
     useEffect(() => {
         if (!columns.length) return;
         setColumnWidths(prev => {
-            const init = { ...prev };  // Keep existing widths
+            const init = { ...prev };
             finalColumns.forEach(col => {
-                if (!(col in init)) {  // Only add new columns
-                    init[col] = Math.max(col.length * 12, 180);
-                }
+                if (!(col in init)) init[col] = Math.max(col.length * 12, 180);
             });
             return init;
         });
     }, [finalColumns, columns]);
 
-    useEffect(() => {
-        setPage(1);
-    }, [filterText, sortConfig, pivot, pageSize]);
+    useEffect(() => { setPage(1); }, [filterText, sortConfig, pivot, pageSize]);
 
-    //table resizes automatically based on the reference's width
+    // Reset collapse when pivot config changes
+    useEffect(() => { setCollapsed(new Set()); }, [pivot.row, pivot.column, pivot.value]);
+
     useEffect(() => {
         const updateDimensions = () => {
             if (containerRef.current) {
@@ -67,20 +87,15 @@ export default function MainTable() {
                 });
             }
         };
-        // Update immediately
         updateDimensions();
-        // Update on window resize
         window.addEventListener('resize', updateDimensions);
         return () => window.removeEventListener('resize', updateDimensions);
     }, [columns]);
 
-    const chartEnabled = Boolean(chart.type && chart.x && chart.y);//boolean varable to chk chart is on or not
+    const chartEnabled = Boolean(chart.type && chart.x && chart.y);
 
-
-
-    // — Export —
     const handleSort = (direction: 'asc' | 'desc') => {
-        if (!sortCol) return; // nothing selected
+        if (!sortCol) return;
         setSortConfig({ column: sortCol, direction });
     };
 
@@ -108,90 +123,70 @@ export default function MainTable() {
         window.URL.revokeObjectURL(url);
     };
 
-    // — Column resize handler (passed down to TableGrid) —
     const handleColumnResize = (col: string, delta: number) => {
         setColumnWidths(prev => ({ ...prev, [col]: Math.max(120, (prev[col] || 180) + delta) }));
     };
+
+    // ── Total column + grand total row ────────────────────────────────────────
     const displayColumns = useMemo(() => {
-  if (!pivot.enabled) return finalColumns;
-
-  if (finalColumns.includes("Total")) return finalColumns;
-
-  return [...finalColumns, "Total"];
-}, [finalColumns, pivot.enabled]);
-
+        if (!isPivotReady) return finalColumns;
+        if (finalColumns.includes("Total")) return finalColumns;
+        return [...finalColumns, "Total"];
+    }, [finalColumns, isPivotReady]);
 
     const rowsWithTotals = useMemo(() => {
-        if (!pivot.enabled) return finalRows;
-
-        if (!finalRows.length) return finalRows;
+        if (!isPivotReady) return finalRows;
+        const baseRows = hierarchyRows ?? finalRows;
+        if (!baseRows.length) return baseRows;
 
         const totalRow: Record<string, any> = {};
+        finalColumns.forEach(col => { totalRow[col] = 0; });
+        totalRow[finalColumns[0]] = "Grand Total";
+        totalRow._isSubtotal = true;
+        totalRow._depth = 0;
 
-        // Initialize
-        finalColumns.forEach(col => {
-            totalRow[col] = 0;
-        });
-
-        // Label first column as "Total"
-        totalRow[finalColumns[0]] = "Total";
-
-        const newRows = finalRows.map(row => {
+        const newRows = baseRows.map(row => {
             let rowTotal = 0;
             const newRow = { ...row };
-
             finalColumns.forEach(col => {
+                if (pivot.row.includes(col)) return;
                 const val = Number(row[col]);
-
-                if (!isNaN(val)) {
+                if (!isNaN(val) && val !== 0) {
                     rowTotal += val;
-                    totalRow[col] += val;
+                    totalRow[col] = (totalRow[col] || 0) + val;
                 }
             });
-
-            // Add Row Total column
-            newRow["Total"] = rowTotal;
-
+            newRow["Total"] = rowTotal || "";
             return newRow;
         });
 
-        // Add grand total value
         let grand = 0;
         finalColumns.forEach(col => {
-            if (typeof totalRow[col] === "number") {
-                grand += totalRow[col];
-            }
+            if (pivot.row.includes(col)) return;
+            if (typeof totalRow[col] === "number") grand += totalRow[col];
         });
-
         totalRow["Total"] = grand;
 
         return [...newRows, totalRow];
-    }, [finalRows, finalColumns, pivot.enabled]);
+    }, [finalRows, hierarchyRows, finalColumns, isPivotReady, pivot.row]);
 
-    const displayRows = pivot.enabled ? rowsWithTotals : finalRows;
+    const displayRows = isPivotReady ? rowsWithTotals : finalRows;
 
-    //  APPLY SORTING TO FINAL ROWS
     const sortedRows = useMemo(() => {
         if (!sortConfig.column || !sortConfig.direction) return displayRows;
-
         return [...displayRows].sort((a, b) => {
             const aVal = Number(a[sortConfig.column!]);
             const bVal = Number(b[sortConfig.column!]);
             if (isNaN(aVal) || isNaN(bVal)) return 0;
-            return sortConfig.direction === 'asc'
-                ? aVal - bVal
-                : bVal - aVal;
+            return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
         });
     }, [displayRows, sortConfig]);
 
-    //  APPLY FILTERING on sorted rows
     const filteredRows = useMemo(() => {
         if (!filterText.trim()) return sortedRows;
         const lowerFilter = filterText.toLowerCase();
         return sortedRows.filter(row =>
-            finalColumns.some(col =>
-                String(row[col]).toLowerCase().includes(lowerFilter)
-            )
+            finalColumns.some(col => String(row[col]).toLowerCase().includes(lowerFilter))
         );
     }, [sortedRows, filterText, finalColumns]);
 
@@ -203,28 +198,16 @@ export default function MainTable() {
     }, [filteredRows, page, pageSize]);
 
     if (!data.length)
-        return (
-            <p className="text-center text-gray-500 mt-6 text-sm">
-                Upload a CSV file to begin
-            </p>
-        );
+        return <p className="text-center text-gray-500 mt-6 text-sm">Upload a CSV file to begin</p>;
 
     if (!columns.length)
-        return (
-            <p className="text-center text-gray-500 mt-6 text-sm">
-                No data to display. Select fields from the panel.
-            </p>
-        );
-
+        return <p className="text-center text-gray-500 mt-6 text-sm">No data to display. Select fields from the panel.</p>;
 
     return (
-        <div
-            ref={containerRef}
-            className="flex flex-col gap-2 h-full min-h-0 border border-gray-400">
-            <div className="flex-1 overflow-auto ">
+        <div ref={containerRef} className="flex flex-col gap-2 h-full min-h-0 border border-gray-400">
+            <div className="flex-1 overflow-auto">
                 {chartEnabled && chartData.length > 0 && (
-                    <div className="h-[420px] border-b bg-white p-3 ">
-                        {/* MAIN CHART */}
+                    <div className="h-[420px] border-b bg-white p-3">
                         <ChartPanel
                             data={chartData}
                             xKey={chart.x}
@@ -236,7 +219,6 @@ export default function MainTable() {
                 )}
 
                 <div className="flex flex-col flex-1 min-h-0 border-t">
-
                     <TableToolbar
                         columns={finalColumns}
                         sortCol={sortCol}
@@ -257,85 +239,59 @@ export default function MainTable() {
                         columnCount={finalColumns.length}
                     />
 
-                    {pivot.enabled &&
-    pivot.row.length>0 &&
-    pivot.column.length>0 &&
-    pivot.value.length>0 && (
-
-        <div className="flex flex-wrap items-center gap-6 px-3 py-2 bg-blue-50 border-t border-b border-blue-200 text-sm">
-
-            {/* Rows */}
-            <div>
-                <span className="font-semibold text-blue-700">Rows:</span>{" "}
-                {pivot.row.length
-                    ? pivot.row.join(" → ")
-                    : "None"}
-            </div>
-
-            {/* Columns */}
-            <div>
-                <span className="font-semibold text-green-700">Columns:</span>{" "}
-                {pivot.column.length
-                    ? pivot.column.join(" → ")
-                    : "None"}
-            </div>
-
-            {/* Values */}
-            <div>
-                <span className="font-semibold text-purple-700">Values:</span>{" "}
-                {pivot.value.length
-                    ? `${pivot.agg.toUpperCase()}(${pivot.value.join(", ")})`
-                    : "None"}
-            </div>
-
-            {/* Percent Mode */}
-            {pivot.percentMode && (
-                <div>
-                    <span className="font-semibold text-orange-700">% Mode:</span>{" "}
-                    {pivot.percentMode}
-                </div>
-            )}
-        </div>
-)}
+                    {isPivotReady && (
+                        <div className="flex flex-wrap items-center gap-6 px-3 py-2 bg-blue-50 border-t border-b border-blue-200 text-sm">
+                            <div><span className="font-semibold text-blue-700">Rows:</span> {pivot.row.join(" → ")}</div>
+                            <div><span className="font-semibold text-green-700">Columns:</span> {pivot.column.join(" → ")}</div>
+                            <div><span className="font-semibold text-purple-700">Values:</span> {`${pivot.agg.toUpperCase()}(${pivot.value.join(", ")})`}</div>
+                            {pivot.percentMode && (
+                                <div><span className="font-semibold text-orange-700">% Mode:</span> {pivot.percentMode}</div>
+                            )}
+                            {hasHierarchy && (
+                                <div className="ml-auto flex gap-2">
+                                    <button
+                                        onClick={() => setCollapsed(new Set())}
+                                        className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100"
+                                    >
+                                        ↕ Expand All
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            const paths = new Set<string>();
+                                            function collectParents(nodes: typeof pivotTree) {
+                                                nodes.forEach(n => {
+                                                    if (n.children.length) {
+                                                        paths.add(n.path);
+                                                        collectParents(n.children);
+                                                    }
+                                                });
+                                            }
+                                            collectParents(pivotTree);
+                                            setCollapsed(paths);
+                                        }}
+                                        className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100"
+                                    >
+                                        ↔ Collapse All
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="flex items-center justify-between px-3 py-2 border-t bg-gray-50 text-sm">
-                        <div>
-                            Page {page} of {totalPages} ({filteredRows.length} rows)
-                        </div>
+                        <div>Page {page} of {totalPages} ({filteredRows.length} rows)</div>
                         <div className="flex items-center gap-2">
-                            <button
-                                disabled={page === 1}
-                                onClick={() => setPage(p => p - 1)}
-                                className="px-2 py-1 border rounded disabled:opacity-50"
-                            >
-                                ◀ Prev
-                            </button>
-                            <button
-                                disabled={page === totalPages}
-                                onClick={() => setPage(p => p + 1)}
-                                className="px-2 py-1 border rounded disabled:opacity-50"
-                            >
-                                Next ▶
-                            </button>
-                            <select
-                                value={pageSize}
-                                onChange={e => {
-                                    setPageSize(Number(e.target.value));
-                                    setPage(1);
-                                }}
-                                className="border rounded px-2 py-1"
-                            >
+                            <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-2 py-1 border rounded disabled:opacity-50">◀ Prev</button>
+                            <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="px-2 py-1 border rounded disabled:opacity-50">Next ▶</button>
+                            <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }} className="border rounded px-2 py-1">
                                 <option value={25}>25</option>
                                 <option value={50}>50</option>
                                 <option value={100}>100</option>
                                 <option value={250}>250</option>
                                 <option value={500}>500</option>
                             </select>
-
                         </div>
                     </div>
-
-
 
                     <div ref={gridWrapperRef} className="flex-1 min-h-0 overflow-hidden">
                         <TableGrid
@@ -344,9 +300,11 @@ export default function MainTable() {
                             dimensions={dimensions}
                             columnWidths={columnWidths}
                             onColumnResize={handleColumnResize}
-                            pivotRowKey={pivot.enabled ? pivot.row.join(' | ') : undefined}
-                            pivotColKey={pivot.enabled ? pivot.column.join(' | ') : undefined}
-                            pivotValKey={pivot.enabled ? pivot.value.join('') : undefined}
+                            pivotRowKeys={isPivotReady ? pivot.row : []}
+                            hasHierarchy={hasHierarchy}
+                            onToggleCollapse={toggleCollapsed}
+                            collapsed={collapsed}
+                            colHeaders={colHeaders}
                             page={page}
                             pageSize={pageSize}
                         />
@@ -355,5 +313,4 @@ export default function MainTable() {
             </div>
         </div>
     );
-
 }
