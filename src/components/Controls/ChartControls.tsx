@@ -4,7 +4,7 @@ import { setChart, clearChart } from '../../store/layoutSlice';
 import type { Aggregation } from '../../store/layoutSlice';
 import { FiBarChart2, FiTrendingUp, FiPieChart, FiActivity } from 'react-icons/fi';
 import { LuChartScatter } from 'react-icons/lu';
-import {TbChartTreemap} from 'react-icons/tb'
+import { TbChartTreemap } from 'react-icons/tb'
 import { useMemo } from 'react';
 
 type ChartItem = {
@@ -54,7 +54,7 @@ export default function ChartControls() {
               key={i.type}
               title={i.label}
               className={`flex items-center justify-center gap-1 border rounded-md px-3 py-2 cursor-pointer text-sm
-                       ${chart.type === i.type
+                      ${chart.type === i.type
                   ? "bg-blue-500 text-white border-blue-500"
                   : "bg-white hover:bg-gray-100"
                 }`}

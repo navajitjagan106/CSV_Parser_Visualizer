@@ -1,24 +1,18 @@
 export type TreeNode = {
-  path: string;        // e.g. "2013" or "2013|Agriculture"
-  depth: number;       // 0 = top level
-  label: string;       // the value at this level
+  path: string;        
+  depth: number;       
+  label: string;       
   rowData: Record<string, any>;
   children: TreeNode[];
 };
 
-/**
- * Builds a hierarchy tree from flat pivot rows.
- * rowKeys = ["Year", "Industry"] → 2-level tree
- */
-export function buildRowTree(
-  rows: Record<string, any>[],
-  rowKeys: string[]
-): TreeNode[] {
+
+export function buildRowTree(rows: Record<string, any>[],rowKeys: string[]): TreeNode[] {
   if (!rowKeys.length || !rows.length) return [];
 
   const root: TreeNode[] = [];
 
-  // Use a map to find/create nodes efficiently
+  
   const nodeMap = new Map<string, TreeNode>();
 
   rows.forEach(row => {
@@ -40,7 +34,6 @@ export function buildRowTree(
         nodeMap.set(pathSoFar, node);
         parentList.push(node);
       } else if (depth === rowKeys.length - 1) {
-        // Leaf node — attach full row data
         nodeMap.get(pathSoFar)!.rowData = row;
       }
 
