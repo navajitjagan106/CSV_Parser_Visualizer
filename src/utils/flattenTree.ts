@@ -20,6 +20,7 @@ export function flattenTree(
   function visit(node: TreeNode) {
     const hasChildren = node.children.length > 0;
     const isCollapsed = collapsed.has(node.path);
+    const pathParts = node.path.split("|");
 
     if (!hasChildren) {
       const flat: FlatRow = {
@@ -31,12 +32,14 @@ export function flattenTree(
         _label: node.label,
       };
       rowKeys.forEach((rk, i) => {
-        flat[rk] = node.path.split("|")[i] ?? "";
+        
+        flat[rk] = i === node.depth ? pathParts[i] ?? "" : "";
       });
       result.push(flat);
       return;
     }
 
+    // Parent row — show only this level's value, blank deeper levels
     const parentFlat: FlatRow = {
       ...node.rowData,
       _path: node.path,
@@ -46,7 +49,7 @@ export function flattenTree(
       _label: node.label,
     };
     rowKeys.forEach((rk, i) => {
-      parentFlat[rk] = node.path.split("|")[i] ?? "";
+      parentFlat[rk] = i === node.depth ? pathParts[i] ?? "" : "";
     });
     result.push(parentFlat);
 
@@ -63,7 +66,7 @@ export function flattenTree(
       rowKeys.forEach((rk, i) => {
         subtotalRow[rk] = i === node.depth
           ? `↳ ${node.label} Total`
-          : (node.path.split("|")[i] ?? "");
+          : "";
       });
 
       dataCols.forEach(col => {

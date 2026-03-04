@@ -6,6 +6,8 @@ import TableStatus from './TableComponents/TableStatus';
 import { useTableData } from '../utils/useTableData';
 import { flattenTree } from '../utils/flattenTree';
 import { buildColHeaders } from '../utils/buildColHeaders';
+import { getVisibleColumns, applyColCollapse } from '../utils/collapseColumns';
+import { TreeNode } from '../utils/buildRowTree';
 
 export default function MainTable() {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -20,14 +22,24 @@ export default function MainTable() {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(50);
 
-    // ── Hierarchy collapse state ──────────────────────────────────────────────
+    //collapsing rows and cols for pivot
     const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+    const [collapsedCols, setCollapsedCols] = useState<Set<string>>(new Set());
 
     const toggleCollapsed = useCallback((path: string) => {
         setCollapsed(prev => {
             const next = new Set(prev);
             if (next.has(path)) next.delete(path);
             else next.add(path);
+            return next;
+        });
+    }, []);
+
+    const toggleCollapsedCol = useCallback((groupKey: string) => {
+        setCollapsedCols(prev => {
+            const next = new Set(prev);
+            if (next.has(groupKey)) next.delete(groupKey);
+            else next.add(groupKey);
             return next;
         });
     }, []);
@@ -40,13 +52,23 @@ export default function MainTable() {
     const isPivotReady = pivot.enabled && pivot.row.length > 0 && pivot.column.length > 0 && pivot.value.length > 0;
     const hasHierarchy = isPivotReady && pivot.row.length > 1 && pivotTree.length > 0;
 
-    // ── Column header groups ──────────────────────────────────────────────────
+    useEffect(() => { setCollapsedCols(new Set()); }, [pivot.row, pivot.column, pivot.value]);
+
+    //  Column header groups (aware of collapsed cols) 
     const colHeaders = useMemo(() => {
         if (!isPivotReady) return [];
-        return buildColHeaders(finalColumns, pivot.row);
-    }, [finalColumns, pivot.row, isPivotReady]);
+        return buildColHeaders(finalColumns, pivot.row, collapsedCols);
+    }, [finalColumns, pivot.row, isPivotReady, collapsedCols]);
 
-    // ── Flatten tree into visible rows ────────────────────────────────────────
+    //  Visible columns after col collapse 
+    const { visibleCols, collapsedGroupMap } = useMemo(() => {
+        if (!isPivotReady || !collapsedCols.size) {
+            return { visibleCols: finalColumns, collapsedGroupMap: {} };
+        }
+        return getVisibleColumns(finalColumns, pivot.row, collapsedCols);
+    }, [finalColumns, pivot.row, isPivotReady, collapsedCols]);
+
+    //  Flatten tree into visible rows 
     const hierarchyRows = useMemo(() => {
         if (!hasHierarchy) return null;
         return flattenTree(pivotTree, collapsed, pivot.row, pivotDataCols, pivot.agg);
@@ -55,7 +77,10 @@ export default function MainTable() {
     useEffect(() => {
         const observer = new ResizeObserver((entries) => {
             for (const entry of entries) {
-                setDimensions(prev => ({ ...prev, height: entry.contentRect.height }));
+                setDimensions(prev => ({
+                    ...prev,
+                    height: entry.contentRect.height  
+                }));
             }
         });
         if (gridWrapperRef.current) observer.observe(gridWrapperRef.current);
@@ -66,16 +91,14 @@ export default function MainTable() {
         if (!columns.length) return;
         setColumnWidths(prev => {
             const init = { ...prev };
-            finalColumns.forEach(col => {
+            visibleCols.forEach(col => {
                 if (!(col in init)) init[col] = Math.max(col.length * 12, 180);
             });
             return init;
         });
-    }, [finalColumns, columns]);
+    }, [visibleCols, columns]);
 
     useEffect(() => { setPage(1); }, [filterText, sortConfig, pivot, pageSize]);
-
-    // Reset collapse when pivot config changes
     useEffect(() => { setCollapsed(new Set()); }, [pivot.row, pivot.column, pivot.value]);
 
     useEffect(() => {
@@ -100,9 +123,9 @@ export default function MainTable() {
     };
 
     const handleExportCSV = () => {
-        const headers = finalColumns.join(',');
-        const rows = displayRows.map(row =>
-            finalColumns.map(col => {
+        const headers = visibleCols.join(',');
+        const rows = displayRows.map((row: Record<string, any>) =>
+            visibleCols.map(col => {
                 const val = row[col];
                 return typeof val === 'string' && (val.includes(',') || val.includes('"'))
                     ? `"${val.replace(/"/g, '""')}"` : val;
@@ -127,28 +150,42 @@ export default function MainTable() {
         setColumnWidths(prev => ({ ...prev, [col]: Math.max(120, (prev[col] || 180) + delta) }));
     };
 
-    // ── Total column + grand total row ────────────────────────────────────────
+    const visibleRowKeys = useMemo(() => {
+        if (!hasHierarchy) return pivot.row;
+
+        const anyExpanded = pivotTree.some(node => !collapsed.has(node.path));
+
+        return anyExpanded ? pivot.row : [pivot.row[0]];
+    }, [hasHierarchy, pivotTree, collapsed, pivot.row]);
+
+    // ── Total column + grand total row 
     const displayColumns = useMemo(() => {
         if (!isPivotReady) return finalColumns;
-        if (finalColumns.includes("Total")) return finalColumns;
-        return [...finalColumns, "Total"];
-    }, [finalColumns, isPivotReady]);
+        const nonRowKeyCols = visibleCols.filter(c => !pivot.row.includes(c));
+        const cols = [...visibleRowKeys, ...nonRowKeyCols];
+
+        if (cols.includes("Total")) return cols;
+        return [...cols, "Total"];
+    }, [visibleCols, visibleRowKeys, isPivotReady, pivot.row]);
 
     const rowsWithTotals = useMemo(() => {
         if (!isPivotReady) return finalRows;
         const baseRows = hierarchyRows ?? finalRows;
         if (!baseRows.length) return baseRows;
 
+        const collapsedRows = applyColCollapse(baseRows, collapsedGroupMap);
+
         const totalRow: Record<string, any> = {};
-        finalColumns.forEach(col => { totalRow[col] = 0; });
-        totalRow[finalColumns[0]] = "Grand Total";
+        visibleCols.forEach(col => { totalRow[col] = 0; });
+        totalRow[visibleCols[0]] = "Grand Total";
         totalRow._isSubtotal = true;
         totalRow._depth = 0;
 
-        const newRows = baseRows.map(row => {
+        const newRows = collapsedRows.map((row: Record<string, any>) => {
             let rowTotal = 0;
             const newRow = { ...row };
-            finalColumns.forEach(col => {
+
+            visibleCols.forEach(col => {
                 if (pivot.row.includes(col)) return;
                 const val = Number(row[col]);
                 if (!isNaN(val) && val !== 0) {
@@ -156,19 +193,20 @@ export default function MainTable() {
                     totalRow[col] = (totalRow[col] || 0) + val;
                 }
             });
-            newRow["Total"] = rowTotal || "";
+
+            newRow["Total"] = rowTotal !== 0 ? rowTotal : "";
             return newRow;
         });
 
         let grand = 0;
-        finalColumns.forEach(col => {
+        visibleCols.forEach(col => {
             if (pivot.row.includes(col)) return;
             if (typeof totalRow[col] === "number") grand += totalRow[col];
         });
         totalRow["Total"] = grand;
 
         return [...newRows, totalRow];
-    }, [finalRows, hierarchyRows, finalColumns, isPivotReady, pivot.row]);
+    }, [finalRows, hierarchyRows, visibleCols, collapsedGroupMap, isPivotReady, pivot.row]);
 
     const displayRows = isPivotReady ? rowsWithTotals : finalRows;
 
@@ -185,10 +223,10 @@ export default function MainTable() {
     const filteredRows = useMemo(() => {
         if (!filterText.trim()) return sortedRows;
         const lowerFilter = filterText.toLowerCase();
-        return sortedRows.filter(row =>
-            finalColumns.some(col => String(row[col]).toLowerCase().includes(lowerFilter))
+        return sortedRows.filter((row: Record<string, any>) =>
+            visibleCols.some(col => String(row[col]).toLowerCase().includes(lowerFilter))
         );
-    }, [sortedRows, filterText, finalColumns]);
+    }, [sortedRows, filterText, visibleCols]);
 
     const totalPages = Math.ceil(filteredRows.length / pageSize);
 
@@ -220,7 +258,7 @@ export default function MainTable() {
 
                 <div className="flex flex-col flex-1 min-h-0 border-t">
                     <TableToolbar
-                        columns={finalColumns}
+                        columns={visibleCols}
                         sortCol={sortCol}
                         onSortColChange={setSortCol}
                         onSortAsc={() => handleSort('asc')}
@@ -236,7 +274,7 @@ export default function MainTable() {
                     <TableStatus
                         filteredCount={filteredRows.length}
                         totalCount={displayRows.length}
-                        columnCount={finalColumns.length}
+                        columnCount={visibleCols.length}
                     />
 
                     {isPivotReady && (
@@ -247,34 +285,35 @@ export default function MainTable() {
                             {pivot.percentMode && (
                                 <div><span className="font-semibold text-orange-700">% Mode:</span> {pivot.percentMode}</div>
                             )}
-                            {hasHierarchy && (
-                                <div className="ml-auto flex gap-2">
-                                    <button
-                                        onClick={() => setCollapsed(new Set())}
-                                        className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100"
-                                    >
-                                        ↕ Expand All
-                                    </button>
+                            <div className="ml-auto flex gap-2">
+                                {hasHierarchy && (<>
+                                    <button onClick={() => setCollapsed(new Set())} className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100">↕ Expand Rows</button>
                                     <button
                                         onClick={() => {
                                             const paths = new Set<string>();
                                             function collectParents(nodes: typeof pivotTree) {
-                                                nodes.forEach(n => {
-                                                    if (n.children.length) {
-                                                        paths.add(n.path);
-                                                        collectParents(n.children);
-                                                    }
+                                                nodes.forEach((n: TreeNode) => {
+                                                    if (n.children.length) { paths.add(n.path); collectParents(n.children); }
                                                 });
                                             }
                                             collectParents(pivotTree);
                                             setCollapsed(paths);
                                         }}
                                         className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100"
-                                    >
-                                        ↔ Collapse All
-                                    </button>
-                                </div>
-                            )}
+                                    >↔ Collapse Rows</button>
+                                </>)}
+                                {colHeaders.length > 0 && (<>
+                                    <button onClick={() => setCollapsedCols(new Set())} className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100">↕ Expand Cols</button>
+                                    <button
+                                        onClick={() => {
+                                            const allGroups = new Set<string>();
+                                            colHeaders[0]?.forEach(g => allGroups.add(g.groupKey));
+                                            setCollapsedCols(allGroups);
+                                        }}
+                                        className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100"
+                                    >↔ Collapse Cols</button>
+                                </>)}
+                            </div>
                         </div>
                     )}
 
@@ -300,11 +339,14 @@ export default function MainTable() {
                             dimensions={dimensions}
                             columnWidths={columnWidths}
                             onColumnResize={handleColumnResize}
-                            pivotRowKeys={isPivotReady ? pivot.row : []}
+                            pivotRowKeys={isPivotReady ? visibleRowKeys : []}
                             hasHierarchy={hasHierarchy}
                             onToggleCollapse={toggleCollapsed}
                             collapsed={collapsed}
                             colHeaders={colHeaders}
+                            collapsedCols={collapsedCols}
+                            onToggleColCollapse={toggleCollapsedCol}
+                            collapsedGroupMap={collapsedGroupMap}
                             page={page}
                             pageSize={pageSize}
                         />
