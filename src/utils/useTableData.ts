@@ -106,7 +106,7 @@ export function useTableData() {
         return Object.keys(pivotResult[0]).filter(k => !pivot.row.includes(k));
     }, [pivotResult, pivot.row]);
 
-    // ── New: row hierarchy tree ───────────────────────────────────────────────
+    // ── New: row hierarchy tree 
     const pivotTree = useMemo((): TreeNode[] => {
         if (!pivotResult?.length || pivot.row.length < 2) return [];
         return buildRowTree(pivotResult, pivot.row);
