@@ -54,7 +54,7 @@ export default function MainTable() {
 
     useEffect(() => { setCollapsedCols(new Set()); }, [pivot.row, pivot.column, pivot.value]);
 
-    //  Column header groups (aware of collapsed cols) 
+    //  Column header groups  
     const colHeaders = useMemo(() => {
         if (!isPivotReady) return [];
         return buildColHeaders(finalColumns, pivot.row, collapsedCols);
@@ -179,6 +179,7 @@ export default function MainTable() {
         visibleCols.forEach(col => { totalRow[col] = 0; });
         totalRow[visibleCols[0]] = "Grand Total";
         totalRow._isSubtotal = true;
+        totalRow._isGrandTotal = true;   // ← add this flag
         totalRow._depth = 0;
 
         const newRows = collapsedRows.map((row: Record<string, any>) => {
@@ -205,7 +206,7 @@ export default function MainTable() {
         });
         totalRow["Total"] = grand;
 
-        return [...newRows, totalRow];
+        return [totalRow,...newRows,];
     }, [finalRows, hierarchyRows, visibleCols, collapsedGroupMap, isPivotReady, pivot.row]);
 
     const displayRows = isPivotReady ? rowsWithTotals : finalRows;

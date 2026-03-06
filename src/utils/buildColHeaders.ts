@@ -1,60 +1,99 @@
+import { buildColTree, ColNode, collectColLeaves } from './buildColTree';
+
 export type ColGroupHeader = {
-  label: string;
-  children: string[];
-  span: number;
-  depth: number;
-  groupKey: string;
+    label: string;
+    children: string[];
+    span: number;
+    depth: number;
+    groupKey: string;
+    path: string;
+    isCollapsed: boolean;
 };
 
 export type ColHeaderLevel = ColGroupHeader[];
 
-export function buildColHeaders(allColumns: string[],rowKeys: string[],collapsedCols?: Set<string>): ColHeaderLevel[] {
-  const collapsed = collapsedCols ?? new Set<string>();
+export function buildColHeaders(
+    allColumns: string[],
+    rowKeys: string[],
+    collapsedCols?: Set<string>
+): ColHeaderLevel[] {
+    const collapsed = collapsedCols ?? new Set<string>();
 
-  const dataCols = allColumns.filter(c =>
-    !rowKeys.includes(c) &&
-    !c.startsWith('__collapsed__') &&
-    c !== 'Total'
-  );
-
-  const hasGroups = dataCols.some(col => col.includes(" | "));
-  if (!hasGroups) return [];
-
-  const splitCols = dataCols.map(col => col.split(" | "));
-
-  const numLevels = Math.max(...splitCols.map(parts => parts.length));
-
-  const levels: ColHeaderLevel[] = [];
-
-  for (let level = 0; level < numLevels; level++) {
-    const groupMap = new Map<string, string[]>();
-
-    dataCols.forEach((col, i) => {
-      const parts = splitCols[i];
-      const topLevel = parts[0];
-      if (level > 0 && collapsed.has(topLevel)) return;
-      const groupKey = parts.slice(0, level + 1).join(" | ");
-      if (!groupMap.has(groupKey)) groupMap.set(groupKey, []);
-      groupMap.get(groupKey)!.push(col);
-    });
-
-    if (groupMap.size === 0) continue;
-
-    levels.push(
-      Array.from(groupMap.entries()).map(([key, children]) => {
-        const topLevel = key.split(" | ")[0];
-        const isCollapsed = collapsed.has(topLevel) && level === 0;
-        return {
-          label: isCollapsed? `▶ ${key.split(" | ").pop()}`: key.split(" | ").pop() ??
-          key,
-          children,
-          span: isCollapsed ? 1 : children.length,
-          depth: level,
-          groupKey: topLevel,
-        };
-      })
+    const dataCols = allColumns.filter(c =>
+        !rowKeys.includes(c) &&
+        !c.startsWith('__collapsed__') &&
+        c !== 'Total'
     );
-  }
 
-  return levels;
+    if (!dataCols.length) return [];
+
+    const hasGroups = dataCols.some(col => col.includes(" | "));
+    if (!hasGroups) return [];
+
+    const colTree = buildColTree(dataCols);
+    const numLevels = getTreeDepth(colTree);
+    if (numLevels === 0) return [];
+
+    const levels: ColHeaderLevel[] = [];
+
+    for (let level = 0; level < numLevels; level++) {
+        const levelHeaders: ColGroupHeader[] = [];
+
+        collectAtDepth(colTree, level, collapsed, (node, topLevelPath) => {
+            const isCollapsedGroup = collapsed.has(topLevelPath) && level === 0;
+            const leaves = collectColLeaves(node);
+            const colKeys = leaves
+                .map(l => l.colKey)
+                .filter((k): k is string => k !== null);
+
+            levelHeaders.push({
+                label: node.label,
+                children: colKeys,
+                span: isCollapsedGroup ? 1 : colKeys.length,
+                depth: level,
+                groupKey: topLevelPath,
+                path: node.path,
+                isCollapsed: isCollapsedGroup,
+            });
+        });
+
+        if (levelHeaders.length > 0) levels.push(levelHeaders);
+    }
+
+    return levels;
+}
+
+function getTreeDepth(nodes: ColNode[]): number {
+    if (!nodes.length) return 0;
+    return 1 + Math.max(...nodes.map(n =>
+        n.children.length ? getTreeDepth(n.children) : 0
+    ));
+}
+
+function collectAtDepth(
+    nodes: ColNode[],
+    targetDepth: number,
+    collapsed: Set<string>,
+    callback: (node: ColNode, topLevelPath: string) => void,
+    topLevelPath: string = "",
+    currentDepth: number = 0
+): void {
+    for (const node of nodes) {
+        const thisTopLevel = currentDepth === 0 ? node.path : topLevelPath;
+
+        if (currentDepth > 0 && collapsed.has(topLevelPath)) continue;
+
+        if (currentDepth === targetDepth) {
+            callback(node, thisTopLevel);
+        } else {
+            collectAtDepth(
+                node.children,
+                targetDepth,
+                collapsed,
+                callback,
+                thisTopLevel,
+                currentDepth + 1
+            );
+        }
+    }
 }

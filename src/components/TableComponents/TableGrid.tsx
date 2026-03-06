@@ -14,7 +14,7 @@ type Props = {
     collapsed: Set<string>;
     colHeaders: ColHeaderLevel[];
     collapsedCols: Set<string>;
-    onToggleColCollapse: (groupKey: string) => void
+    onToggleColCollapse: (groupKey: string) => void;
     collapsedGroupMap: Record<string, string[]>;
     page: number;
     pageSize: number;
@@ -35,16 +35,14 @@ export default function TableGrid({
 
     const numHeaderLevels = colHeaders.length;
     const hasGroupedHeaders = numHeaderLevels > 0;
-    const headerHeight = hasGroupedHeaders
-        ? LEVEL_HEADER_HEIGHT * numHeaderLevels
-        : SINGLE_HEADER_HEIGHT;
+
     const getColumnWidth = (index: number) => {
         if (index === 0) return 48;
         const col = finalColumns[index - 1];
-        // Collapsed summary columns — use columnWidths if set, else default 160
-        if (col.startsWith('__collapsed__')) return columnWidths[col] || 160;
-        return columnWidths[col] || 180;
+        if (col.startsWith('__collapsed__')) return columnWidths[col] || 120;
+        return columnWidths[col] || 140;
     };
+
     const getRowHeight = (index: number) => {
         if (index === 0) return hasGroupedHeaders
             ? LEVEL_HEADER_HEIGHT * numHeaderLevels
@@ -56,7 +54,6 @@ export default function TableGrid({
         if (!resizingCol.current) return;
         const dx = e.clientX - startX.current;
         onColumnResize(resizingCol.current, dx);
-        // Find the exact index of the resized column and reset from there only
         const colIndex = finalColumns.indexOf(resizingCol.current) + 1;
         gridRef.current?.resetAfterColumnIndex(colIndex, false);
         startX.current = e.clientX;
@@ -75,6 +72,17 @@ export default function TableGrid({
         document.addEventListener("mouseup", stopResize);
     };
 
+    const ResizeHandle = ({ col, stopProp = false }: { col: string; stopProp?: boolean }) => (
+        <div
+            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400 z-10"
+            onMouseDown={(e) => {
+                e.preventDefault();
+                if (stopProp) e.stopPropagation();
+                startResize(e, col);
+            }}
+        />
+    );
+
     const renderHeader = (columnIndex: number, style: React.CSSProperties) => {
         if (columnIndex === 0) {
             return (
@@ -88,10 +96,9 @@ export default function TableGrid({
         const isRowKey = pivotRowKeys.includes(col);
         const isCollapsedSummary = col.startsWith('__collapsed__');
         const isTotal = col === 'Total';
-        const groupKey = isCollapsedSummary ? col.replace('__collapsed__', '') : '';
 
-        // ── Collapsed summary column ──────────────────────────────────────────
         if (isCollapsedSummary) {
+            const groupKey = col.replace('__collapsed__', '');
             return (
                 <div
                     style={style}
@@ -114,15 +121,11 @@ export default function TableGrid({
                             )}
                         </div>
                     ))}
-                    <div
-                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400 z-10"
-                        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); startResize(e, col); }}
-                    />
+                    <ResizeHandle col={col} stopProp />
                 </div>
             );
         }
 
-        // ── Total column ──────────────────────────────────────────────────────
         if (isTotal) {
             return (
                 <div style={style} className="border-b border-r bg-gray-100 relative flex flex-col overflow-hidden">
@@ -132,111 +135,122 @@ export default function TableGrid({
                             className="flex items-center justify-center px-2 border-b text-[11px] font-bold text-gray-700 bg-gray-100"
                             style={{ height: numHeaderLevels ? LEVEL_HEADER_HEIGHT : SINGLE_HEADER_HEIGHT }}
                         >
-                            {i === numHeaderLevels - 1 ? 'Total' : ''}
+                            {numHeaderLevels === 0 || i === numHeaderLevels - 1 ? 'Total' : ''}
                         </div>
                     ))}
-                    <div
-                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400 z-10"
-                        onMouseDown={(e) => { e.preventDefault(); startResize(e, col); }}
-                    />
+                    <ResizeHandle col={col} />
                 </div>
             );
         }
 
-        // ── No grouped headers ────────────────────────────────────────────────
         if (!hasGroupedHeaders) {
             return (
                 <div style={style} className="border-b border-r bg-gray-100 hover:bg-gray-200 font-semibold px-2 truncate relative flex items-center text-[12px] text-gray-700 transition-colors">
                     <span className="truncate">{col}</span>
-                    <div
-                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400"
-                        onMouseDown={(e) => { e.preventDefault(); startResize(e, col); }}
-                    />
+                    <ResizeHandle col={col} />
                 </div>
             );
         }
 
-        // ── Multi-level grouped header ────────────────────────────────────────
-        const colParts = col.includes(" | ") ? col.split(" | ") : [col];
-        const topLevelGroup = colParts[0];
-        const isCollapsibleGroup = !isRowKey && numHeaderLevels > 1;
+        if (isRowKey) {
+            return (
+                <div style={style} className="border-b border-r relative flex flex-col overflow-hidden">
+                    <div className="flex items-center px-2 font-semibold text-[12px] bg-gray-100 text-gray-700 h-full truncate">
+                        {col}dd
+                    </div>
+                    <ResizeHandle col={col} />
+                </div>
+            );
+        }
 
-        // Find position of this col within its group — for fake merge
-        const groupSiblings = finalColumns.filter(c => {
-            if (pivotRowKeys.includes(c)) return false;
-            if (c.startsWith('__collapsed__')) return false;
-            if (c === 'Total') return false;
-            const parts = c.includes(" | ") ? c.split(" | ") : [c];
-            return parts[0] === topLevelGroup;
-        });
-        const isFirstInGroup = groupSiblings[0] === col;
-
+        // Multi-level grouped header — look up group from colHeaders, no string splitting
         return (
             <div style={style} className="border-b border-r relative flex flex-col overflow-hidden">
-                {isRowKey ? (
-                    <div className="flex items-center px-2 font-semibold text-[12px] bg-gray-100 text-gray-700 h-full truncate border-b">
-                        {col}
-                    </div>
-                ) : (
-                    colHeaders.map((_, levelIndex) => {
-                        const label = colParts[levelIndex] ?? colParts[colParts.length - 1];
-                        const isLastLevel = levelIndex === numHeaderLevels - 1;
-                        const isTopLevel = levelIndex === 0;
+                {colHeaders.map((levelHeaders, levelIndex) => {
+                    const isTopLevel = levelIndex === 0;
+                    const isLastLevel = levelIndex === numHeaderLevels - 1;
 
-                        if (isTopLevel) {
-                            return (
-                                <div
-                                    key={levelIndex}
-                                    className={`flex items-center text-[11px] font-semibold text-gray-700 border-b bg-gray-200
-                                    ${isCollapsibleGroup ? 'hover:bg-gray-300 cursor-pointer' : ''}
-                                `}
-                                    style={{ height: LEVEL_HEADER_HEIGHT }}
-                                    onClick={isCollapsibleGroup ? () => onToggleColCollapse(topLevelGroup) : undefined}
-                                >
-                                    {/* Only FIRST col in group shows label + button — rest are blank same bg = fake merge */}
-                                    {isFirstInGroup ? (
-                                        <div className="flex items-center justify-between w-full px-2">
-                                            <span className="truncate text-gray-800">{topLevelGroup}</span>
-                                            {isCollapsibleGroup && (
-                                                <span className="ml-1 text-gray-500 hover:text-blue-600 shrink-0 text-[10px]">◀</span>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        <div className="w-full h-full" /> // blank — looks merged
-                                    )}
-                                </div>
-                            );
-                        }
-
-                        // Leaf level
+                    const group = levelHeaders.find(g => g.children.includes(col));
+                    if (!group) {
                         return (
                             <div
                                 key={levelIndex}
-                                className={`flex items-center px-2 text-[11px] truncate border-b bg-gray-100 text-gray-700
-                                ${isLastLevel ? "font-normal text-gray-600" : "font-semibold"}
-                            `}
+                                className="border-b bg-gray-100"
                                 style={{ height: LEVEL_HEADER_HEIGHT }}
-                                title={label}
+                            />
+                        );
+                    }
+
+                    const isCollapsibleGroup = isTopLevel && numHeaderLevels > 1;
+                    const isFirstInGroup = group.children[0] === col;
+
+                    if (isTopLevel) {
+                        return (
+                            <div
+                                key={levelIndex}
+                                className={`flex items-center text-[11px] font-semibold text-gray-700 border-b bg-gray-200
+                                    ${isCollapsibleGroup ? 'hover:bg-gray-300 cursor-pointer' : ''}
+                                `}
+                                style={{ height: LEVEL_HEADER_HEIGHT }}
+                                onClick={isCollapsibleGroup
+                                    ? () => onToggleColCollapse(group.groupKey)
+                                    : undefined
+                                }
                             >
-                                {label}
+                                {isFirstInGroup ? (
+                                    <div className="flex items-center justify-between w-full px-2">
+                                        <span className="truncate text-gray-800">{group.label}</span>
+                                        {isCollapsibleGroup && (
+                                            <span className="ml-1 text-gray-500 hover:text-blue-600 shrink-0 text-[10px]">◀</span>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="w-full h-full" />
+                                )}
                             </div>
                         );
-                    })
-                )}
-                <div
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-blue-400 z-10"
-                    onMouseDown={(e) => { e.preventDefault(); startResize(e, col); }}
-                />
+                    }
+
+                    return (
+                        <div
+                            key={levelIndex}
+                            className={`flex items-center px-2 text-[11px] truncate border-b bg-gray-100 text-gray-700
+                                ${isLastLevel ? "font-normal text-gray-600" : "font-semibold"}
+                            `}
+                            style={{ height: LEVEL_HEADER_HEIGHT }}
+                            title={group.label}
+                        >
+                            {group.label}
+                        </div>
+                    );
+                })}
+                <ResizeHandle col={col} />
             </div>
         );
     };
 
     const renderCell = (columnIndex: number, rowIndex: number, style: React.CSSProperties) => {
         if (columnIndex === 0) {
+            const row = filteredRows[rowIndex - 1];
+            const isGrandTotal = Boolean(row?._isGrandTotal);
+
+            if (isGrandTotal) {
+                return (
+                    <div style={style} className="border-r border-b text-center text-[12px] text-gray-700 font-bold flex items-center justify-center select-none bg-gray-100">
+                        ∑
+                    </div>
+                );
+            }
+
+            const grandTotalOffset = filteredRows
+                .slice(0, rowIndex - 1)
+                .filter(r => r?._isGrandTotal)
+                .length;
+
             const isEvenRow = rowIndex % 2 === 0;
             return (
                 <div style={style} className={`border-r border-b text-center text-[12px] text-gray-500 flex items-center justify-center select-none ${isEvenRow ? 'bg-white' : 'bg-gray-50'}`}>
-                    {(page - 1) * pageSize + rowIndex}
+                    {(page - 1) * pageSize + rowIndex - grandTotalOffset}
                 </div>
             );
         }
@@ -256,7 +270,6 @@ export default function TableGrid({
         const isNegative = !isNaN(Number(cellValue)) && Number(cellValue) < 0;
         const isEvenRow = rowIndex % 2 === 0;
 
-        // Collapsed summary cell — show aggregated value with different bg
         if (isCollapsedSummary) {
             return (
                 <div
@@ -336,8 +349,8 @@ export default function TableGrid({
             rowHeight={getRowHeight}
             width={dimensions.width}
             height={Math.max(200, dimensions.height)}
-            style={{ paddingBottom: ROW_HEIGHT }}
-            overscanRowCount={1}
+            overscanRowCount={3}
+            overscanColumnCount={2}
         >
             {({ columnIndex, rowIndex, style }) => {
                 if (rowIndex === 0) return renderHeader(columnIndex, style);
