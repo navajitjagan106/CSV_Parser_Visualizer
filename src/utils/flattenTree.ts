@@ -65,7 +65,7 @@ export function flattenTree(
 
       rowKeys.forEach((rk, i) => {
         subtotalRow[rk] = i === node.depth
-          ? `↳ ${node.label} Total`
+          ? `↳ ${node.label} Subtotal`
           : "";
       });
 

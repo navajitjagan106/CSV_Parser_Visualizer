@@ -8,6 +8,7 @@ import { flattenTree } from '../utils/flattenTree';
 import { buildColHeaders } from '../utils/buildColHeaders';
 import { getVisibleColumns, applyColCollapse } from '../utils/collapseColumns';
 import { TreeNode } from '../utils/buildRowTree';
+import { buildColTree } from '../utils/buildColTree';
 
 export default function MainTable() {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -23,11 +24,11 @@ export default function MainTable() {
     const [pageSize, setPageSize] = useState(50);
 
     //collapsing rows and cols for pivot
-    const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+    const [collapsedRows, setCollapsedRows] = useState<Set<string>>(new Set());
     const [collapsedCols, setCollapsedCols] = useState<Set<string>>(new Set());
 
     const toggleCollapsed = useCallback((path: string) => {
-        setCollapsed(prev => {
+        setCollapsedRows(prev => {
             const next = new Set(prev);
             if (next.has(path)) next.delete(path);
             else next.add(path);
@@ -57,8 +58,12 @@ export default function MainTable() {
     //  Column header groups  
     const colHeaders = useMemo(() => {
         if (!isPivotReady) return [];
-        return buildColHeaders(finalColumns, pivot.row, collapsedCols);
-    }, [finalColumns, pivot.row, isPivotReady, collapsedCols]);
+        return buildColHeaders(
+            [...pivot.row, ...pivotDataCols],  // ← raw cols before any collapse
+            pivot.row,
+            collapsedCols
+        );
+    }, [pivotDataCols, pivot.row, isPivotReady, collapsedCols]);
 
     //  Visible columns after col collapse 
     const { visibleCols, collapsedGroupMap } = useMemo(() => {
@@ -71,15 +76,15 @@ export default function MainTable() {
     //  Flatten tree into visible rows 
     const hierarchyRows = useMemo(() => {
         if (!hasHierarchy) return null;
-        return flattenTree(pivotTree, collapsed, pivot.row, pivotDataCols, pivot.agg);
-    }, [pivotTree, collapsed, pivot.row, pivotDataCols, pivot.agg, hasHierarchy]);
+        return flattenTree(pivotTree, collapsedRows, pivot.row, pivotDataCols, pivot.agg);
+    }, [pivotTree, collapsedRows, pivot.row, pivotDataCols, pivot.agg, hasHierarchy]);
 
     useEffect(() => {
         const observer = new ResizeObserver((entries) => {
             for (const entry of entries) {
                 setDimensions(prev => ({
                     ...prev,
-                    height: entry.contentRect.height  
+                    height: entry.contentRect.height
                 }));
             }
         });
@@ -91,22 +96,22 @@ export default function MainTable() {
         if (!columns.length) return;
         setColumnWidths(prev => {
             const init = { ...prev };
-            visibleCols.forEach(col => {
-                if (!(col in init)) init[col] = Math.max(col.length * 12, 180);
+            visibleCols.forEach((col: string) => {
+                if (!(col in init)) init[col] = Math.max(col.length * 5, 180);
             });
             return init;
         });
     }, [visibleCols, columns]);
 
     useEffect(() => { setPage(1); }, [filterText, sortConfig, pivot, pageSize]);
-    useEffect(() => { setCollapsed(new Set()); }, [pivot.row, pivot.column, pivot.value]);
+    useEffect(() => { setCollapsedRows(new Set()); }, [pivot.row, pivot.column, pivot.value]);
 
     useEffect(() => {
         const updateDimensions = () => {
             if (containerRef.current) {
                 setDimensions({
                     width: containerRef.current.clientWidth,
-                    height: containerRef.current.clientHeight
+                    height: containerRef.current.clientHeight,
                 });
             }
         };
@@ -153,10 +158,10 @@ export default function MainTable() {
     const visibleRowKeys = useMemo(() => {
         if (!hasHierarchy) return pivot.row;
 
-        const anyExpanded = pivotTree.some(node => !collapsed.has(node.path));
+        const anyExpanded = pivotTree.some(node => !collapsedRows.has(node.path));
 
         return anyExpanded ? pivot.row : [pivot.row[0]];
-    }, [hasHierarchy, pivotTree, collapsed, pivot.row]);
+    }, [hasHierarchy, pivotTree, collapsedRows, pivot.row]);
 
     // ── Total column + grand total row 
     const displayColumns = useMemo(() => {
@@ -166,7 +171,7 @@ export default function MainTable() {
 
         if (cols.includes("Total")) return cols;
         return [...cols, "Total"];
-    }, [visibleCols, visibleRowKeys, isPivotReady, pivot.row]);
+    }, [visibleCols, finalColumns, visibleRowKeys, isPivotReady, pivot.row]);
 
     const rowsWithTotals = useMemo(() => {
         if (!isPivotReady) return finalRows;
@@ -206,7 +211,7 @@ export default function MainTable() {
         });
         totalRow["Total"] = grand;
 
-        return [totalRow,...newRows,];
+        return [totalRow, ...newRows,];
     }, [finalRows, hierarchyRows, visibleCols, collapsedGroupMap, isPivotReady, pivot.row]);
 
     const displayRows = isPivotReady ? rowsWithTotals : finalRows;
@@ -241,6 +246,7 @@ export default function MainTable() {
 
     if (!columns.length)
         return <p className="text-center text-gray-500 mt-6 text-sm">No data to display. Select fields from the panel.</p>;
+
 
     return (
         <div ref={containerRef} className="flex flex-col gap-2 h-full min-h-0 border border-gray-400">
@@ -288,7 +294,7 @@ export default function MainTable() {
                             )}
                             <div className="ml-auto flex gap-2">
                                 {hasHierarchy && (<>
-                                    <button onClick={() => setCollapsed(new Set())} className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100">↕ Expand Rows</button>
+                                    <button onClick={() => setCollapsedRows(new Set())} className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100">↕ Expand Rows</button>
                                     <button
                                         onClick={() => {
                                             const paths = new Set<string>();
@@ -298,7 +304,7 @@ export default function MainTable() {
                                                 });
                                             }
                                             collectParents(pivotTree);
-                                            setCollapsed(paths);
+                                            setCollapsedRows(paths);
                                         }}
                                         className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100"
                                     >↔ Collapse Rows</button>
@@ -307,9 +313,10 @@ export default function MainTable() {
                                     <button onClick={() => setCollapsedCols(new Set())} className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100">↕ Expand Cols</button>
                                     <button
                                         onClick={() => {
-                                            const allGroups = new Set<string>();
-                                            colHeaders[0]?.forEach(g => allGroups.add(g.groupKey));
-                                            setCollapsedCols(allGroups);
+                                            const rawDataCols = pivotDataCols.filter(c => !pivot.row.includes(c) && c !== 'Total');
+                                            const colTree = buildColTree(rawDataCols);
+                                            const rootPaths = new Set<string>(colTree.map(n => n.path));
+                                            setCollapsedCols(rootPaths);
                                         }}
                                         className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100"
                                     >↔ Collapse Cols</button>
@@ -343,7 +350,7 @@ export default function MainTable() {
                             pivotRowKeys={isPivotReady ? visibleRowKeys : []}
                             hasHierarchy={hasHierarchy}
                             onToggleCollapse={toggleCollapsed}
-                            collapsed={collapsed}
+                            collapsed={collapsedRows}
                             colHeaders={colHeaders}
                             collapsedCols={collapsedCols}
                             onToggleColCollapse={toggleCollapsedCol}

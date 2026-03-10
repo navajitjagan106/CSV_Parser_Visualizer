@@ -1,30 +1,40 @@
-import { buildColTree, getColKeys } from './buildColTree';
+import { buildColTree, getColKeys,ColNode } from './buildColTree';
 
-export function getVisibleColumns(finalColumns: string[],rowKeys: string[],collapsedCols: Set<string>): {
-    visibleCols: string[];
-    collapsedGroupMap: Record<string, string[]>;
-} {
+export function getVisibleColumns(
+    finalColumns: string[],
+    rowKeys: string[],
+    collapsedCols: Set<string>
+): { visibleCols: string[]; collapsedGroupMap: Record<string, string[]> } {
+
     const rowKeyCols = finalColumns.filter(c => rowKeys.includes(c));
     const dataCols = finalColumns.filter(c =>
-        !rowKeys.includes(c) &&
-        c !== 'Total'
+        !rowKeys.includes(c) && c !== 'Total' && !c.startsWith('__collapsed__')
     );
 
     const colTree = buildColTree(dataCols);
-
     const collapsedGroupMap: Record<string, string[]> = {};
     const visibleDataCols: string[] = [];
 
-    for (const node of colTree) {
-        if (collapsedCols.has(node.path) && node.children.length > 0) {
-            const summaryKey = `__collapsed__${node.label}`;
-            const childColKeys = getColKeys(node);
-            visibleDataCols.push(summaryKey);
-            collapsedGroupMap[summaryKey] = childColKeys;
-        } else {
-            visibleDataCols.push(...getColKeys(node));
-        }
+    function visitNode(node: ColNode) {
+    const isCollapsed = collapsedCols.has(node.path);
+    const hasChildren = node.children.length > 0;
+
+    if (!hasChildren) {
+        if (node.colKey) visibleDataCols.push(node.colKey);
+        return;
     }
+
+    if (isCollapsed) {
+        const summaryKey = `__collapsed__${node.path}`;
+        const childKeys = getColKeys(node);
+        visibleDataCols.push(summaryKey);
+        collapsedGroupMap[summaryKey] = childKeys;
+    } else {
+        node.children.forEach(child => visitNode(child));
+    }
+}
+
+    colTree.forEach(node => visitNode(node));
 
     return {
         visibleCols: [...rowKeyCols, ...visibleDataCols],
@@ -37,7 +47,8 @@ export function applyColCollapse(
     collapsedGroupMap: Record<string, string[]>
 ): Record<string, any>[] {
     if (!Object.keys(collapsedGroupMap).length) return rows;
-
+    console.log('collapsedGroupMap', collapsedGroupMap);
+    console.log('row keys sample', Object.keys(rows[0] || {}));
     return rows.map(row => {
         const newRow = { ...row };
         for (const [summaryKey, children] of Object.entries(collapsedGroupMap)) {
@@ -45,7 +56,7 @@ export function applyColCollapse(
                 const val = Number(row[col]);
                 return sum + (isNaN(val) ? 0 : val);
             }, 0);
-            newRow[summaryKey] = total || "";
+            newRow[summaryKey] = total || "";  // ← "" when 0, should this be 0?
         }
         return newRow;
     });

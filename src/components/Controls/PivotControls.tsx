@@ -167,8 +167,6 @@ export default function PivotControls() {
   );
 }
 
-/* =============================== */
-
 function DropZone({
   id,
   title,
