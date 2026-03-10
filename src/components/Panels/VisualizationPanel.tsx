@@ -1,5 +1,5 @@
 import { RootState } from '../../store/store'
-import { togglePivot} from '../../store/layoutSlice'
+import { togglePivot } from '../../store/layoutSlice'
 import { useDispatch, useSelector } from 'react-redux';
 import PivotControls from "../Controls/PivotControls";
 import ChartControls from '../Controls/ChartControls';
@@ -29,8 +29,8 @@ export default function VisualizationPanel() {
       <div className="border-t my-4"></div>
 
       {/*Filters to filter the table */}
-     
-      <FilterControls/>
+
+      <FilterControls />
       <div className="border-t my-4"></div>
 
 
@@ -40,7 +40,7 @@ export default function VisualizationPanel() {
       </p>
       <div
         className={`flex items-center justify-center gap-2 border rounded-md px-3 py-2 cursor-pointer text-sm 
-           ${pivot.enabled
+          ${pivot.enabled
             ? "bg-blue-500 text-white border-blue-500"
             : "bg-white hover:bg-gray-100"}
         `}

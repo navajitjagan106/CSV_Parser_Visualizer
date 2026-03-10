@@ -100,13 +100,13 @@ export function useTableData() {
         return filteredBaseData;
     }, [pivotResult, filteredBaseData]);
 
-    // ── New: pivot data columns (no row keys) for subtotal computation ────────
+    //pivot data columns (no row keys) for subtotal computation 
     const pivotDataCols = useMemo(() => {
         if (!pivotResult?.length) return [];
         return Object.keys(pivotResult[0]).filter(k => !pivot.row.includes(k));
     }, [pivotResult, pivot.row]);
 
-    // ── New: row hierarchy tree 
+    // row hierarchy tree 
     const pivotTree = useMemo((): TreeNode[] => {
         if (!pivotResult?.length || pivot.row.length < 2) return [];
         return buildRowTree(pivotResult, pivot.row);
