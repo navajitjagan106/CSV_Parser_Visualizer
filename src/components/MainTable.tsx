@@ -10,6 +10,17 @@ import { getVisibleColumns, applyColCollapse } from '../utils/collapseColumns';
 import { TreeNode } from '../utils/buildRowTree';
 import { buildColTree } from '../utils/buildColTree';
 
+function sortDataCols(cols: string[]): string[] {
+    return [...cols].sort((a, b) => {
+        const aRoot = a.split(' | ')[0];
+        const bRoot = b.split(' | ')[0];
+        const aNum = Number(aRoot);
+        const bNum = Number(bRoot);
+        if (!isNaN(aNum) && !isNaN(bNum)) return bNum - aNum;
+        return aRoot.localeCompare(bRoot);
+    });
+}
+
 export default function MainTable() {
     const containerRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -53,31 +64,40 @@ export default function MainTable() {
     const isPivotReady = pivot.enabled && pivot.row.length > 0 && pivot.column.length > 0 && pivot.value.length > 0;
     const hasHierarchy = isPivotReady && pivot.row.length > 1 && pivotTree.length > 0;
 
+    const canonicalDataCols = useMemo(() => {
+        if (!isPivotReady) return [];
+        const raw = pivotDataCols.filter(c => !pivot.row.includes(c) && c !== 'Total');
+        return sortDataCols(raw);
+    }, [pivotDataCols, pivot.row, isPivotReady]);
+
     useEffect(() => { setCollapsedCols(new Set()); }, [pivot.row, pivot.column, pivot.value]);
 
-    //  Column header groups  
+    const { visibleCols, collapsedGroupMap } = useMemo((): { visibleCols: string[]; collapsedGroupMap: Record<string, string[]> } => {
+        if (!isPivotReady) {
+            return { visibleCols: finalColumns as string[], collapsedGroupMap: {} };
+        }
+        if (!collapsedCols.size) {
+            return { visibleCols: [...pivot.row as string[], ...canonicalDataCols], collapsedGroupMap: {} };
+        }
+        return getVisibleColumns([...pivot.row as string[], ...canonicalDataCols], pivot.row as string[], collapsedCols);
+    }, [canonicalDataCols, pivot.row, isPivotReady, collapsedCols, finalColumns]);
+
+    const collapsedColsArray = useMemo(() => Array.from(collapsedCols), [collapsedCols]);
+
     const colHeaders = useMemo(() => {
         if (!isPivotReady) return [];
+        const collapsedSet = new Set(collapsedColsArray);
         return buildColHeaders(
-            [...pivot.row, ...pivotDataCols],  // ← raw cols before any collapse
+            [...pivot.row, ...pivotDataCols],
             pivot.row,
-            collapsedCols
+            collapsedSet
         );
-    }, [pivotDataCols, pivot.row, isPivotReady, collapsedCols]);
+    }, [pivotDataCols, pivot.row, isPivotReady, collapsedColsArray]);
 
-    //  Visible columns after col collapse 
-    const { visibleCols, collapsedGroupMap } = useMemo(() => {
-        if (!isPivotReady || !collapsedCols.size) {
-            return { visibleCols: finalColumns, collapsedGroupMap: {} };
-        }
-        return getVisibleColumns(finalColumns, pivot.row, collapsedCols);
-    }, [finalColumns, pivot.row, isPivotReady, collapsedCols]);
-
-    //  Flatten tree into visible rows 
     const hierarchyRows = useMemo(() => {
         if (!hasHierarchy) return null;
-        return flattenTree(pivotTree, collapsedRows, pivot.row, pivotDataCols, pivot.agg);
-    }, [pivotTree, collapsedRows, pivot.row, pivotDataCols, pivot.agg, hasHierarchy]);
+        return flattenTree(pivotTree, collapsedRows, pivot.row, canonicalDataCols, pivot.agg);
+    }, [pivotTree, collapsedRows, pivot.row, canonicalDataCols, pivot.agg, hasHierarchy]);
 
     useEffect(() => {
         const observer = new ResizeObserver((entries) => {
@@ -157,34 +177,31 @@ export default function MainTable() {
 
     const visibleRowKeys = useMemo(() => {
         if (!hasHierarchy) return pivot.row;
-
         const anyExpanded = pivotTree.some(node => !collapsedRows.has(node.path));
-
         return anyExpanded ? pivot.row : [pivot.row[0]];
     }, [hasHierarchy, pivotTree, collapsedRows, pivot.row]);
 
-    // ── Total column + grand total row 
-    const displayColumns = useMemo(() => {
-        if (!isPivotReady) return finalColumns;
+    //  Total column + grand total row 
+    const displayColumns = useMemo((): string[] => {
+        if (!isPivotReady) return finalColumns as string[];
         const nonRowKeyCols = visibleCols.filter(c => !pivot.row.includes(c));
         const cols = [...visibleRowKeys, ...nonRowKeyCols];
-
         if (cols.includes("Total")) return cols;
         return [...cols, "Total"];
     }, [visibleCols, finalColumns, visibleRowKeys, isPivotReady, pivot.row]);
 
     const rowsWithTotals = useMemo(() => {
         if (!isPivotReady) return finalRows;
+
         const baseRows = hierarchyRows ?? finalRows;
         if (!baseRows.length) return baseRows;
 
         const collapsedRows = applyColCollapse(baseRows, collapsedGroupMap);
-
         const totalRow: Record<string, any> = {};
         visibleCols.forEach(col => { totalRow[col] = 0; });
         totalRow[visibleCols[0]] = "Grand Total";
         totalRow._isSubtotal = true;
-        totalRow._isGrandTotal = true;   // ← add this flag
+        totalRow._isGrandTotal = true;
         totalRow._depth = 0;
 
         const newRows = collapsedRows.map((row: Record<string, any>) => {
@@ -200,7 +217,7 @@ export default function MainTable() {
                 }
             });
 
-            newRow["Total"] = rowTotal !== 0 ? rowTotal : "";
+            newRow["Total"] = rowTotal !== 0 ? rowTotal.toFixed(4) : "";
             return newRow;
         });
 
@@ -209,7 +226,7 @@ export default function MainTable() {
             if (pivot.row.includes(col)) return;
             if (typeof totalRow[col] === "number") grand += totalRow[col];
         });
-        totalRow["Total"] = grand;
+        totalRow["Total"] = grand.toFixed(4);
 
         return [totalRow, ...newRows,];
     }, [finalRows, hierarchyRows, visibleCols, collapsedGroupMap, isPivotReady, pivot.row]);
@@ -241,11 +258,16 @@ export default function MainTable() {
         return filteredRows.slice(start, start + pageSize);
     }, [filteredRows, page, pageSize]);
 
+    const toolbarColumns = useMemo((): string[] => {
+        if (!isPivotReady) return columns;
+        return visibleCols.filter(c => !c.startsWith('__collapsed__'));
+    }, [isPivotReady, columns, visibleCols]);
+
     if (!data.length)
-        return <p className="text-center text-gray-500 mt-6 text-sm">Upload a CSV file to begin</p>;
+        return <p className="text-center text-gray-500 mt-6 text-sm">Upload a CSV file to begin</p>
 
     if (!columns.length)
-        return <p className="text-center text-gray-500 mt-6 text-sm">No data to display. Select fields from the panel.</p>;
+        return <p className="text-center text-gray-500 mt-6 text-sm">No data to display. Select fields from the panel.</p>
 
 
     return (
@@ -265,7 +287,7 @@ export default function MainTable() {
 
                 <div className="flex flex-col flex-1 min-h-0 border-t">
                     <TableToolbar
-                        columns={visibleCols}
+                        columns={toolbarColumns}
                         sortCol={sortCol}
                         onSortColChange={setSortCol}
                         onSortAsc={() => handleSort('asc')}
@@ -281,7 +303,7 @@ export default function MainTable() {
                     <TableStatus
                         filteredCount={filteredRows.length}
                         totalCount={displayRows.length}
-                        columnCount={visibleCols.length}
+                        columnCount={toolbarColumns.length}
                     />
 
                     {isPivotReady && (
@@ -289,9 +311,6 @@ export default function MainTable() {
                             <div><span className="font-semibold text-blue-700">Rows:</span> {pivot.row.join(" → ")}</div>
                             <div><span className="font-semibold text-green-700">Columns:</span> {pivot.column.join(" → ")}</div>
                             <div><span className="font-semibold text-purple-700">Values:</span> {`${pivot.agg.toUpperCase()}(${pivot.value.join(", ")})`}</div>
-                            {pivot.percentMode && (
-                                <div><span className="font-semibold text-orange-700">% Mode:</span> {pivot.percentMode}</div>
-                            )}
                             <div className="ml-auto flex gap-2">
                                 {hasHierarchy && (<>
                                     <button onClick={() => setCollapsedRows(new Set())} className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100">↕ Expand Rows</button>
@@ -313,8 +332,7 @@ export default function MainTable() {
                                     <button onClick={() => setCollapsedCols(new Set())} className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100">↕ Expand Cols</button>
                                     <button
                                         onClick={() => {
-                                            const rawDataCols = pivotDataCols.filter(c => !pivot.row.includes(c) && c !== 'Total');
-                                            const colTree = buildColTree(rawDataCols);
+                                            const colTree = buildColTree(canonicalDataCols);
                                             const rootPaths = new Set<string>(colTree.map(n => n.path));
                                             setCollapsedCols(rootPaths);
                                         }}
@@ -336,6 +354,7 @@ export default function MainTable() {
                                 <option value={100}>100</option>
                                 <option value={250}>250</option>
                                 <option value={500}>500</option>
+                                <option value={1000}>1000</option>
                             </select>
                         </div>
                     </div>
