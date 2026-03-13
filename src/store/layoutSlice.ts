@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-export type Aggregation = "sum" | "avg" | "min" | "max" | "count" | "countDistinct" | "median" | "stddev";
+export type Aggregation = "sum" | "avg" | "min" | "max" | "count" | "countDistinct" | "median" | "stddev" | "percentage";
 export type ChartAggregation = "sum" | "avg" | "min" | "max" | "count" | "countDistinct" | "median" | "stddev" | "percent";
 
 interface ChartState {
@@ -14,7 +14,6 @@ interface PivotState {
   column: string[],
   value: string[],
   agg: Aggregation
-  percentMode:'row' | 'col' | 'grand' | ''
 }
 
 interface TopNState {
@@ -52,7 +51,6 @@ const initialState: LayoutState = {
     column:[],
     value: [],
     agg: "sum",
-    percentMode:''
   },
   topN: {
     enabled: false,

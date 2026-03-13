@@ -56,7 +56,7 @@ export function applyColCollapse(
                 const val = Number(row[col]);
                 return sum + (isNaN(val) ? 0 : val);
             }, 0);
-            newRow[summaryKey] = total || "";  // ← "" when 0, should this be 0?
+            newRow[summaryKey] = total || ""; 
         }
         return newRow;
     });

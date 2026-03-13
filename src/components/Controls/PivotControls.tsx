@@ -131,30 +131,11 @@ export default function PivotControls() {
           <option value="countDistinct">Count Distinct</option>
           <option value="median">Median</option>
           <option value="stddev">Std Deviation</option>
+          <option value="percentage">Percentage</option>
         </select>
       </div>
 
-      {/* Percent */}
-      <select
-        value={pivot.percentMode || ""}
-        onChange={(e) =>
-          dispatch(
-            setPivot({
-              percentMode: e.target.value as
-                | "row"
-                | "col"
-                | "grand"
-                | undefined
-            })
-          )
-        }
-        className="w-full border rounded px-2 py-1"
-      >
-        <option value="">No %</option>
-        <option value="row">% of Row</option>
-        <option value="col">% of Column</option>
-        <option value="grand">% of Grand</option>
-      </select>
+      
 
       <button
         onClick={() => dispatch(clearPivot())}

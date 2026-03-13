@@ -1,7 +1,7 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store/store'
 import { setChart, clearChart } from '../../store/layoutSlice';
-import type { Aggregation } from '../../store/layoutSlice';
+import type { ChartAggregation } from '../../store/layoutSlice';
 import { FiBarChart2, FiTrendingUp, FiPieChart, FiActivity } from 'react-icons/fi';
 import { LuChartScatter } from 'react-icons/lu';
 import { TbChartTreemap } from 'react-icons/tb'
@@ -85,7 +85,7 @@ export default function ChartControls() {
               className="w-full border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
               value={chart.agg}
               onChange={(e) => {
-                const value = e.target.value as Aggregation;
+                const value = e.target.value as ChartAggregation;
                 dispatch(
                   setChart({
                     agg: value,

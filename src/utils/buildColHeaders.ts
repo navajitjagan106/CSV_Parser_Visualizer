@@ -11,7 +11,15 @@ export type ColGroupHeader = {
 };
 
 export type ColHeaderLevel = ColGroupHeader[];
-
+function getVisibleChildKeys(node: ColNode, collapsed: Set<string>): string[] {
+    if (collapsed.has(node.path) && node.children.length > 0) {
+        return [`__collapsed__${node.path}`];
+    }
+    if (!node.children.length) {
+        return node.colKey ? [node.colKey] : [];
+    }
+    return node.children.flatMap(child => getVisibleChildKeys(child, collapsed));
+}
 export function buildColHeaders(allColumns: string[], rowKeys: string[], collapsedCols?: Set<string>): ColHeaderLevel[] {
     const collapsed = collapsedCols ?? new Set<string>();
 
@@ -36,7 +44,9 @@ export function buildColHeaders(allColumns: string[], rowKeys: string[], collaps
         const levelHeaders: ColGroupHeader[] = [];
 
         collectAtDepth(colTree, level, collapsed, (node, topLevelPath) => {
-            const isCollapsedGroup = collapsed.has(node.path) && node.children.length > 0;  // ← node.path
+            const isCollapsedGroup = collapsed.has(node.path) && node.children.length > 0;
+            const visibleChildren = getVisibleChildKeys(node, collapsed);
+
             const leaves = collectColLeaves(node);
             const colKeys = leaves
                 .map(l => l.colKey)
@@ -44,9 +54,7 @@ export function buildColHeaders(allColumns: string[], rowKeys: string[], collaps
 
             levelHeaders.push({
                 label: node.label,
-                children: isCollapsedGroup
-                    ? [`__collapsed__${node.path}`]  // ← the summary key
-                    : colKeys,
+                children: visibleChildren,
                 span: isCollapsedGroup ? 1 : colKeys.length,
                 depth: level,
                 groupKey: node.path,
@@ -79,7 +87,7 @@ function collectAtDepth(
 ): void {
     for (const node of nodes) {
         const thisTopLevel = currentDepth === 0 ? node.path : topLevelPath;
-        
+
         if (ancestorCollapsed) continue;  // parent was collapsed, skip entirely
 
         const isThisCollapsed = collapsed.has(node.path) && node.children.length > 0;

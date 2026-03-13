@@ -74,13 +74,13 @@ export function useTableData() {
 
     const pivotResult = useMemo(() => {
         if (!pivot.enabled) return null;
-        const { row, column, value, agg, percentMode } = pivot;
+        const { row, column, value, agg} = pivot;
         if (!row.length || !column.length || !value.length) return null;
         if (!row.every((r: string) => selected.includes(r))) return null;
         if (!column.every((c: string) => selected.includes(c))) return null;
         if (!value.every((v: string) => selected.includes(v))) return null;
 
-        return pivotData(filteredBaseData, row, column, value, agg, percentMode || undefined);
+        return pivotData(filteredBaseData, row, column, value, agg);
     }, [filteredBaseData, pivot, selected]);
 
     const allChartData = useMemo(() => {
@@ -89,11 +89,29 @@ export function useTableData() {
     }, [filteredBaseData, chart.x, chart.y]);
 
     const finalColumns = useMemo(() => {
-        if (!pivotResult?.length) return columns;
-        const rowCols = pivot.row;
-        const dataCols = Object.keys(pivotResult[0]).filter(k => !rowCols.includes(k));
-        return [...rowCols, ...dataCols];
-    }, [pivotResult, columns, pivot.row]);
+    if (!pivotResult?.length) return columns;
+    const rowCols = pivot.row;
+    // Use Set across all rows to preserve insertion order
+    const seen = new Set<string>();
+    pivotResult.forEach((row: Record<string, any>) => {
+        Object.keys(row).forEach(k => {
+            if (!rowCols.includes(k)) seen.add(k);
+        });
+    });
+    return [...rowCols,  Array.from(seen)];
+}, [pivotResult, columns, pivot.row]);
+
+const pivotDataCols = useMemo(() => {
+    if (!pivotResult?.length) return [];
+    const rowCols = pivot.row;
+    const seen = new Set<string>();
+    pivotResult.forEach((row: Record<string, any>) => {
+        Object.keys(row).forEach(k => {
+            if (!rowCols.includes(k)) seen.add(k);
+        });
+    });
+    return  Array.from(seen);
+}, [pivotResult, pivot.row]);
 
     const finalRows = useMemo(() => {
         if (pivotResult?.length) return pivotResult;
@@ -101,10 +119,6 @@ export function useTableData() {
     }, [pivotResult, filteredBaseData]);
 
     //pivot data columns (no row keys) for subtotal computation 
-    const pivotDataCols = useMemo(() => {
-        if (!pivotResult?.length) return [];
-        return Object.keys(pivotResult[0]).filter(k => !pivot.row.includes(k));
-    }, [pivotResult, pivot.row]);
 
     // row hierarchy tree 
     const pivotTree = useMemo((): TreeNode[] => {

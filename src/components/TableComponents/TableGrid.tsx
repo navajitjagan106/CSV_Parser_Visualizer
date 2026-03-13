@@ -22,7 +22,7 @@ type Props = {
 
 const ROW_HEIGHT = 32;
 const SINGLE_HEADER_HEIGHT = 38;
-const LEVEL_HEADER_HEIGHT = 24;
+const LEVEL_HEADER_HEIGHT = 34;
 
 export default function TableGrid({
     finalColumns, filteredRows, dimensions, columnWidths, onColumnResize,
@@ -82,9 +82,8 @@ export default function TableGrid({
         />
     );
 
-    // levelIndex = which header row (0 = top level, 1 = second level, etc.)
+    // levelIndex which header row (0 = top level, 1 = second level,...)
     const renderHeader = (columnIndex: number, levelIndex: number, style: React.CSSProperties) => {
-        // # column
 
         if (columnIndex === 0) {
             return (
@@ -120,19 +119,14 @@ export default function TableGrid({
             );
         }
 
-        // Collapsed summary column — show label + ▶ only on first level row
+        // Collapsed summary column 
         if (isCollapsedSummary) {
             const groupKey = col.replace('__collapsed__', '');
-            // depth of this collapsed node = number of " | " separators in groupKey
             const collapsedNodeDepth = groupKey.split(' | ').length - 1;
 
-            // Only render as collapsed summary at its own level and below
-            // At levels ABOVE it, let it fall through to group lookup
-            if (levelIndex < collapsedNodeDepth) {
-                // Fall through to group lookup — this col belongs to a parent group
-                // Don't return early, let it render as part of parent group
-            } else {
-                // At its own level or deeper — render as collapsed summary
+            if (levelIndex >= collapsedNodeDepth) {
+
+
                 const displayLabel = groupKey.split(' | ').pop() ?? groupKey;
                 return (
                     <div
@@ -195,14 +189,13 @@ export default function TableGrid({
             (col.startsWith('__collapsed__') &&
                 group.children[0]?.startsWith(col.replace('__collapsed__', ''))
             );
-        //const levelHeaders = colHeaders[levelIndex];
-        console.log('levelIndex', levelIndex, 'levelHeaders groups:', levelHeaders?.map(g => g.groupKey));
+
         return (
             <div
                 style={style}
                 className={`border-b border-r relative flex items-center text-[11px] font-semibold text-gray-700
-            ${levelIndex === 0 ? 'bg-gray-200' : 'bg-gray-100'}
-        `}
+                ${levelIndex === 0 ? 'bg-gray-200' : 'bg-gray-100'}
+                `}
             >
                 {isFirstInGroup ? (
                     <div
@@ -219,7 +212,7 @@ export default function TableGrid({
                         )}
                     </div>
                 ) : (
-                    <div className="w-full h-full" />  // ← no onClick here
+                    <div className="w-full h-full" />
                 )}
                 {isLastLevel && <ResizeHandle col={col} />}
             </div>
@@ -231,6 +224,7 @@ export default function TableGrid({
         if (columnIndex === 0) {
             const row = filteredRows[rowIndex];
             const isGrandTotal = Boolean(row?._isGrandTotal);
+
             if (isGrandTotal) {
                 return (
                     <div style={style} className="border-r border-b text-center text-[12px] font-bold flex items-center justify-center select-none bg-gray-100">
@@ -238,10 +232,15 @@ export default function TableGrid({
                     </div>
                 );
             }
+
             const isEvenRow = rowIndex % 2 === 0;
+            const grandTotalsBefore = filteredRows
+                .slice(0, rowIndex)
+                .filter(r => Boolean(r?._isGrandTotal)).length;
+
             return (
                 <div style={style} className={`border-r border-b text-center text-[12px] text-gray-500 flex items-center justify-center select-none ${isEvenRow ? 'bg-white' : 'bg-gray-50'}`}>
-                    {(page - 1) * pageSize + rowIndex + 1}
+                    {(page - 1) * pageSize + rowIndex - grandTotalsBefore + 1}
                 </div>
             );
         }

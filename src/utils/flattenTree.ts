@@ -23,6 +23,7 @@ export function flattenTree(
     const pathParts = node.path.split("|");
 
     if (!hasChildren) {
+      // Leaf node 
       const flat: FlatRow = {
         ...node.rowData,
         _path: node.path,
@@ -32,52 +33,49 @@ export function flattenTree(
         _label: node.label,
       };
       rowKeys.forEach((rk, i) => {
-        
         flat[rk] = i === node.depth ? pathParts[i] ?? "" : "";
       });
       result.push(flat);
       return;
     }
 
-    // Parent row — show only this level's value, blank deeper levels
-    const parentFlat: FlatRow = {
-      ...node.rowData,
-      _path: node.path,
-      _depth: node.depth,
-      _isSubtotal: false,
-      _hasChildren: true,
-      _label: node.label,
-    };
-    rowKeys.forEach((rk, i) => {
-      parentFlat[rk] = i === node.depth ? pathParts[i] ?? "" : "";
-    });
-    result.push(parentFlat);
-
     if (isCollapsed) {
       const leaves = collectLeaves(node);
-      const subtotalRow: FlatRow = {
-        _path: `${node.path}|__subtotal__`,
-        _depth: node.depth + 1,
-        _isSubtotal: true,
-        _hasChildren: false,
-        _label: `${node.label} (subtotal)`,
+      const mergedRow: FlatRow = {
+        _path: node.path,
+        _depth: node.depth,
+        _isSubtotal: false,
+        _hasChildren: true,
+        _isMerged: true,
+        _label: node.label,
       } as FlatRow;
 
       rowKeys.forEach((rk, i) => {
-        subtotalRow[rk] = i === node.depth
-          ? `↳ ${node.label} Subtotal`
-          : "";
+        mergedRow[rk] = i === node.depth ? pathParts[i] ?? "" : "";
       });
 
       dataCols.forEach(col => {
         const nums = leaves
           .map(l => Number(l.rowData[col]))
           .filter(n => !isNaN(n));
-        subtotalRow[col] = nums.length ? nums.reduce((a, b) => a + b, 0) : "";
+        mergedRow[col] = nums.length ? nums.reduce((a, b) => a + b, 0) : "";
       });
 
-      result.push(subtotalRow);
+      result.push(mergedRow);
     } else {
+      const parentFlat: FlatRow = {
+        ...node.rowData,
+        _path: node.path,
+        _depth: node.depth,
+        _isSubtotal: false,
+        _hasChildren: true,
+        _label: node.label,
+      };
+      rowKeys.forEach((rk, i) => {
+        parentFlat[rk] = i === node.depth ? pathParts[i] ?? "" : "";
+      });
+      result.push(parentFlat);
+
       node.children.forEach(child => visit(child));
     }
   }
