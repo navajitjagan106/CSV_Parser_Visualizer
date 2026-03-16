@@ -4,10 +4,8 @@ import TableToolbar from './TableComponents/TableToolbar';
 import TableGrid from './TableComponents/TableGrid';
 import TableStatus from './TableComponents/TableStatus';
 import { useTableData } from '../utils/useTableData';
-import { flattenTree } from '../utils/flattenTree';
 import { buildColHeaders } from '../utils/buildColHeaders';
 import { getVisibleColumns, applyColCollapse } from '../utils/collapseColumns';
-import { TreeNode } from '../utils/buildRowTree';
 import { buildColTree } from '../utils/buildColTree';
 
 function sortDataCols(cols: string[]): string[] {
@@ -56,13 +54,13 @@ export default function MainTable() {
         });
     }, []);
 
-    const { data, columns, finalColumns, finalRows, allChartData, chart, pivot, pivotTree, pivotDataCols } = useTableData();
+    const { data, columns, finalColumns, finalRows, allChartData, chart, pivot, flatPivotRows, pivotDataCols } = useTableData();
 
     const chartData = allChartData ? allChartData[chart.agg] : [];
     const gridWrapperRef = useRef<HTMLDivElement>(null);
 
     const isPivotReady = pivot.enabled && pivot.row.length > 0 && pivot.column.length > 0 && pivot.value.length > 0;
-    const hasHierarchy = isPivotReady && pivot.row.length > 1 && pivotTree.length > 0;
+    const hasHierarchy = isPivotReady && pivot.row.length > 1 && !!flatPivotRows;
 
     const canonicalDataCols = useMemo(() => {
         if (!isPivotReady) return [];
@@ -95,9 +93,9 @@ export default function MainTable() {
     }, [pivotDataCols, pivot.row, isPivotReady, collapsedColsArray]);
 
     const hierarchyRows = useMemo(() => {
-        if (!hasHierarchy) return null;
-        return flattenTree(pivotTree, collapsedRows, pivot.row, canonicalDataCols, pivot.agg);
-    }, [pivotTree, collapsedRows, pivot.row, canonicalDataCols, pivot.agg, hasHierarchy]);
+        if (!flatPivotRows) return null;
+        return flatPivotRows(collapsedRows);   // collapsed is the only thing that changes on toggle
+    }, [flatPivotRows, collapsedRows]);
 
     useEffect(() => {
         const observer = new ResizeObserver((entries) => {
@@ -141,6 +139,7 @@ export default function MainTable() {
     }, [columns]);
 
     const chartEnabled = Boolean(chart.type && chart.x && chart.y);
+    const PAGE_SIZES = [25, 50, 100, 250, 500, 1000];
 
     const handleSort = (direction: 'asc' | 'desc') => {
         if (!sortCol) return;
@@ -176,10 +175,11 @@ export default function MainTable() {
     };
 
     const visibleRowKeys = useMemo(() => {
-        if (!hasHierarchy) return pivot.row;
-        const anyExpanded = pivotTree.some(node => !collapsedRows.has(node.path));
-        return anyExpanded ? pivot.row : [pivot.row[0]];
-    }, [hasHierarchy, pivotTree, collapsedRows, pivot.row]);
+        if (!hasHierarchy || !hierarchyRows) return pivot.row;
+        const anyExpanded = hierarchyRows.some(
+            row => row._hasChildren && !collapsedRows.has(row._path)
+        ); return anyExpanded ? pivot.row : [pivot.row[0]];
+    }, [hasHierarchy, hierarchyRows, collapsedRows, pivot.row]);
 
     //  Total column + grand total row 
     const displayColumns = useMemo((): string[] => {
@@ -217,7 +217,7 @@ export default function MainTable() {
                 }
             });
 
-            newRow["Total"] = rowTotal !== 0 ? rowTotal.toFixed(4) : "";
+            newRow["Total"] = rowTotal !== 0 ? rowTotal : "";
             return newRow;
         });
 
@@ -226,7 +226,7 @@ export default function MainTable() {
             if (pivot.row.includes(col)) return;
             if (typeof totalRow[col] === "number") grand += totalRow[col];
         });
-        totalRow["Total"] = grand.toFixed(4);
+        totalRow["Total"] = grand;
 
         return [totalRow, ...newRows,];
     }, [finalRows, hierarchyRows, visibleCols, collapsedGroupMap, isPivotReady, pivot.row]);
@@ -268,7 +268,21 @@ export default function MainTable() {
 
     if (!columns.length)
         return <p className="text-center text-gray-500 mt-6 text-sm">No data to display. Select fields from the panel.</p>
+    const PivotBadge = ({ label, color, value }: { label: string; color: string; value: string }) => (
+        <div className="flex items-center gap-1.5">
+            <span className={`text-[11px] font-semibold uppercase tracking-wide ${color}`}>{label}</span>
+            <span className="text-gray-700 font-mono text-xs bg-white border border-gray-200 rounded px-1.5 py-0.5">{value}</span>
+        </div>
+    );
 
+    const PivotBtn = ({ onClick, children }: { onClick: () => void; children: React.ReactNode }) => (
+        <button
+            onClick={onClick}
+            className="text-xs px-2.5 py-1 rounded border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 hover:border-gray-400 hover:text-gray-800 transition-colors"
+        >
+            {children}
+        </button>
+    );
 
     return (
         <div ref={containerRef} className="flex flex-col gap-2 h-full min-h-0 border border-gray-400">
@@ -307,38 +321,24 @@ export default function MainTable() {
                     />
 
                     {isPivotReady && (
-                        <div className="flex flex-wrap items-center gap-6 px-3 py-2 bg-blue-50 border-t border-b border-blue-200 text-sm">
-                            <div><span className="font-semibold text-blue-700">Rows:</span> {pivot.row.join(" → ")}</div>
-                            <div><span className="font-semibold text-green-700">Columns:</span> {pivot.column.join(" → ")}</div>
-                            <div><span className="font-semibold text-purple-700">Values:</span> {`${pivot.agg.toUpperCase()}(${pivot.value.join(", ")})`}</div>
-                            <div className="ml-auto flex gap-2">
-                                {hasHierarchy && (<>
-                                    <button onClick={() => setCollapsedRows(new Set())} className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100">↕ Expand Rows</button>
-                                    <button
-                                        onClick={() => {
-                                            const paths = new Set<string>();
-                                            function collectParents(nodes: typeof pivotTree) {
-                                                nodes.forEach((n: TreeNode) => {
-                                                    if (n.children.length) { paths.add(n.path); collectParents(n.children); }
-                                                });
-                                            }
-                                            collectParents(pivotTree);
-                                            setCollapsedRows(paths);
-                                        }}
-                                        className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100"
-                                    >↔ Collapse Rows</button>
-                                </>)}
-                                {colHeaders.length > 0 && (<>
-                                    <button onClick={() => setCollapsedCols(new Set())} className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100">↕ Expand Cols</button>
-                                    <button
-                                        onClick={() => {
-                                            const colTree = buildColTree(canonicalDataCols);
-                                            const rootPaths = new Set<string>(colTree.map(n => n.path));
-                                            setCollapsedCols(rootPaths);
-                                        }}
-                                        className="text-xs px-2 py-1 border rounded bg-white hover:bg-gray-100"
-                                    >↔ Collapse Cols</button>
-                                </>)}
+                        <div className="flex flex-wrap items-center gap-4 px-4 py-2 bg-white border-t border-b border-gray-200">
+                            <PivotBadge label="Rows" color="text-blue-600" value={pivot.row.join(" → ")} />
+                            <PivotBadge label="Columns" color="text-emerald-600" value={pivot.column.join(" → ")} />
+                            <PivotBadge label="Values" color="text-violet-600" value={`${pivot.agg.toUpperCase()}(${pivot.value.join(", ")})`} />
+
+                            <div className="ml-auto flex items-center gap-1.5">
+                                {hasHierarchy && <>
+                                    <PivotBtn onClick={() => setCollapsedRows(new Set())}>↕ Expand rows</PivotBtn>
+                                    <PivotBtn onClick={() => setCollapsedRows(new Set((hierarchyRows ?? []).filter(r => r._hasChildren).map(r => r._path)))}>
+                                        ↔ Collapse rows
+                                    </PivotBtn>
+                                </>}
+                                {colHeaders.length > 0 && <>
+                                    <PivotBtn onClick={() => setCollapsedCols(new Set())}>↕ Expand cols</PivotBtn>
+                                    <PivotBtn onClick={() => setCollapsedCols(new Set(buildColTree(canonicalDataCols).map(n => n.path)))}>
+                                        ↔ Collapse cols
+                                    </PivotBtn>
+                                </>}
                             </div>
                         </div>
                     )}
@@ -349,12 +349,7 @@ export default function MainTable() {
                             <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-2 py-1 border rounded disabled:opacity-50">◀ Prev</button>
                             <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="px-2 py-1 border rounded disabled:opacity-50">Next ▶</button>
                             <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }} className="border rounded px-2 py-1">
-                                <option value={25}>25</option>
-                                <option value={50}>50</option>
-                                <option value={100}>100</option>
-                                <option value={250}>250</option>
-                                <option value={500}>500</option>
-                                <option value={1000}>1000</option>
+                                {PAGE_SIZES.map(n => <option key={n} value={n}>{n}</option>)}
                             </select>
                         </div>
                     </div>

@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { pivotData } from './pivotData';
 import { groupDataAll } from './groupDataAll';
-import { buildRowTree, TreeNode } from './buildRowTree';
+import { buildFlatPivot } from './flatPivot';
 
 export function useTableData() {
     const data = useSelector((s: RootState) => s.data.rows);
@@ -74,7 +74,7 @@ export function useTableData() {
 
     const pivotResult = useMemo(() => {
         if (!pivot.enabled) return null;
-        const { row, column, value, agg} = pivot;
+        const { row, column, value, agg } = pivot;
         if (!row.length || !column.length || !value.length) return null;
         if (!row.every((r: string) => selected.includes(r))) return null;
         if (!column.every((c: string) => selected.includes(c))) return null;
@@ -89,42 +89,59 @@ export function useTableData() {
     }, [filteredBaseData, chart.x, chart.y]);
 
     const finalColumns = useMemo(() => {
-    if (!pivotResult?.length) return columns;
-    const rowCols = pivot.row;
-    // Use Set across all rows to preserve insertion order
-    const seen = new Set<string>();
-    pivotResult.forEach((row: Record<string, any>) => {
-        Object.keys(row).forEach(k => {
-            if (!rowCols.includes(k)) seen.add(k);
+        if (!pivotResult?.length) return columns;
+        const rowCols = pivot.row;
+        // Use Set across all rows to preserve insertion order
+        const seen = new Set<string>();
+        pivotResult.forEach((row: Record<string, any>) => {
+            Object.keys(row).forEach(k => {
+                if (!rowCols.includes(k)) seen.add(k);
+            });
         });
-    });
-    return [...rowCols,  Array.from(seen)];
-}, [pivotResult, columns, pivot.row]);
+        return [...rowCols, Array.from(seen)];
+    }, [pivotResult, columns, pivot.row]);
 
-const pivotDataCols = useMemo(() => {
-    if (!pivotResult?.length) return [];
-    const rowCols = pivot.row;
-    const seen = new Set<string>();
-    pivotResult.forEach((row: Record<string, any>) => {
-        Object.keys(row).forEach(k => {
-            if (!rowCols.includes(k)) seen.add(k);
+    const pivotDataCols = useMemo(() => {
+        if (!pivotResult?.length) return [];
+        const rowCols = pivot.row;
+        const seen = new Set<string>();
+        pivotResult.forEach((row: Record<string, any>) => {
+            Object.keys(row).forEach(k => {
+                if (!rowCols.includes(k)) seen.add(k);
+            });
         });
-    });
-    return  Array.from(seen);
-}, [pivotResult, pivot.row]);
+        return Array.from(seen);
+    }, [pivotResult, pivot.row]);
 
     const finalRows = useMemo(() => {
         if (pivotResult?.length) return pivotResult;
         return filteredBaseData;
     }, [pivotResult, filteredBaseData]);
 
-    //pivot data columns (no row keys) for subtotal computation 
-
     // row hierarchy tree 
-    const pivotTree = useMemo((): TreeNode[] => {
-        if (!pivotResult?.length || pivot.row.length < 2) return [];
-        return buildRowTree(pivotResult, pivot.row);
-    }, [pivotResult, pivot.row]);
+    const flatPivotRows = useMemo(() => {
+        if (!pivotResult?.length || pivot.row.length < 2) return null;
 
-    return { data, columns, finalColumns, finalRows, allChartData, chart, pivot, pivotTree, pivotDataCols };
+        const sorted = [...pivotResult].sort((a, b) => {
+            for (let i = 0; i < pivot.row.length; i++) {
+                const key = pivot.row[i];
+                const av = a[key];
+                const bv = b[key];
+                const aNum = Number(av);
+                const bNum = Number(bv);
+                let cmp = 0;
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    cmp = bNum - aNum;          
+                } else {
+                    cmp = String(av ?? "").localeCompare(String(bv ?? ""));  
+                }
+                if (cmp !== 0) return cmp;      
+            }
+            return 0;
+        });
+        return (collapsed: Set<string>) =>
+            buildFlatPivot(sorted, pivot.row, pivotDataCols, collapsed);
+    }, [pivotResult, pivot.row, pivotDataCols]);
+
+    return { data, columns, finalColumns, finalRows, allChartData, chart, pivot, flatPivotRows, pivotDataCols };
 }

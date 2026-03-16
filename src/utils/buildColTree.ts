@@ -16,7 +16,7 @@ export function buildColTree(dataCols: string[]): ColNode[] {
         let pathSoFar = "";
 
         parts.forEach((part, depth) => {
-            pathSoFar = depth === 0 ? part : `${pathSoFar} | ${part}`;  // ← space | space
+            pathSoFar = depth === 0 ? part : `${pathSoFar} | ${part}`;  
             const isLeaf = depth === parts.length - 1;
 
             if (!nodeMap.has(pathSoFar)) {
