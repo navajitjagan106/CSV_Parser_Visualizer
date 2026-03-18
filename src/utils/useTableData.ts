@@ -140,7 +140,9 @@ export function useTableData() {
             return 0;
         });
         return (collapsed: Set<string>) =>
-            buildFlatPivot(sorted, pivot.row, pivotDataCols, collapsed);
+            buildFlatPivot(sorted, pivot.row,pivotDataCols.filter(c => !pivot.row.includes(c) && c !== 'Total'), // ← filter here
+
+                collapsed,true);
     }, [pivotResult, pivot.row, pivotDataCols]);
 
     return { data, columns, finalColumns, finalRows, allChartData, chart, pivot, flatPivotRows, pivotDataCols };

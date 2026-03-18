@@ -125,8 +125,6 @@ export default function TableGrid({
             const collapsedNodeDepth = groupKey.split(' | ').length - 1;
 
             if (levelIndex >= collapsedNodeDepth) {
-
-
                 const displayLabel = groupKey.split(' | ').pop() ?? groupKey;
                 return (
                     <div
@@ -249,7 +247,13 @@ export default function TableGrid({
         if (!row) return <div style={style} />;
 
         const col = finalColumns[columnIndex - 1];
-        const cellValue = row[col];
+        const cellValue = (() => {
+            if (col.startsWith('__collapsed__')) {
+                const children = collapsedGroupMap[col] ?? [];
+                return children.reduce((sum, c) => sum + (Number(row[c]) || 0), 0) || "";
+            }
+            return row[col];
+        })();
         const isRowKey = pivotRowKeys.includes(col);
         const isSubtotal = Boolean(row._isSubtotal);
         const isGrandTotal = Boolean(row._isGrandTotal);
@@ -294,17 +298,23 @@ export default function TableGrid({
 
         if (isRowKey && hasHierarchy) {
             const rowKeyIndex = pivotRowKeys.indexOf(col);
-            const isFirstKey = rowKeyIndex === 0;
-            const indentPx = depth * 16;
-            const showToggle = isFirstKey && hasChildren;
-
+            const isThisDepthCol = rowKeyIndex === depth;
+            const showToggle = isThisDepthCol && hasChildren;
+            if (!isThisDepthCol && !cellValue) {
+                return (
+                    <div
+                        style={style}
+                        className={`border-r border-b ${normalBg}`}
+                    />
+                );
+            }
             return (
                 <div
                     style={style}
                     className={`border-r border-b px-1 flex items-center truncate text-[12px] text-gray-800 hover:bg-gray-100 ${normalBg}`}
                     title={String(cellValue ?? '')}
                 >
-                    <span style={{ paddingLeft: indentPx }} className="flex items-center gap-1">
+                    <span className="flex items-center gap-1">
                         {showToggle ? (
                             <button
                                 onClick={() => onToggleCollapse(path)}
@@ -312,7 +322,7 @@ export default function TableGrid({
                             >
                                 {isCollapsed ? '▶' : '▼'}
                             </button>
-                        ) : isFirstKey ? (
+                        ) : isThisDepthCol ? (
                             <span className="w-4 shrink-0 inline-block" />
                         ) : null}
                         <span className={hasChildren ? "font-semibold text-gray-900" : "text-gray-700"}>
