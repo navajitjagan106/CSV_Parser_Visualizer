@@ -1,4 +1,3 @@
-
 export type FlatRow = Record<string, any> & {
     _path: string;
     _depth: number;
@@ -8,7 +7,7 @@ export type FlatRow = Record<string, any> & {
     _label: string;
 };
 
-export function buildFlatPivot(rows: Record<string, any>[],rowKeys: string[],dataCols: string[],collapsed: Set<string>): FlatRow[] {
+export function buildFlatPivot(rows: Record<string, any>[], rowKeys: string[], dataCols: string[], collapsed: Set<string>, showSubtotals = false): FlatRow[] {
     if (!rowKeys.length || !rows.length) return [];
 
     const emittedPaths = new Set<string>();
@@ -39,15 +38,12 @@ export function buildFlatPivot(rows: Record<string, any>[],rowKeys: string[],dat
             const path = pathParts.join("|");
             const isLeaf = depth === rowKeys.length - 1;
 
-            // If any ancestor is collapsed, skip this entire row completely
-            // Check all ancestor paths, not just the immediate parent
-            const ancestorCollapsed = pathParts
-                .slice(0, -1)
-                .some((_, i) => collapsed.has(pathParts.slice(0, i + 1).join("|")));
 
-            if (ancestorCollapsed) break;  
+            const ancestorCollapsed = pathParts.slice(0, -1).some((_, i) => collapsed.has(pathParts.slice(0, i + 1).join("|")));
 
-            if (emittedPaths.has(path)) continue;  
+            if (ancestorCollapsed) break;
+
+            if (emittedPaths.has(path)) continue;
             emittedPaths.add(path);
 
             const isCollapsed = !isLeaf && collapsed.has(path);
@@ -65,6 +61,9 @@ export function buildFlatPivot(rows: Record<string, any>[],rowKeys: string[],dat
             rowKeys.forEach((rk, i) => {
                 flat[rk] = i === depth ? pathParts[i] ?? "" : "";
             });
+            for (let i = depth + 1; i < rowKeys.length; i++) {
+                flat[rowKeys[i]] = "";
+            }
 
             // Fill data columns
             if (isCollapsed) {
@@ -72,15 +71,60 @@ export function buildFlatPivot(rows: Record<string, any>[],rowKeys: string[],dat
                 dataCols.forEach(col => {
                     flat[col] = agg[col] !== undefined ? agg[col] : "";
                 });
+                flat["Total"] = dataCols.reduce((sum, col) => {
+                    const v = Number(flat[col]);
+                    return sum + (isNaN(v) ? 0 : v);
+                }, 0) || "";
             } else if (isLeaf) {
                 dataCols.forEach(col => { flat[col] = row[col]; });
+                flat["Total"] = dataCols.reduce((sum, col) => {
+                    const v = Number(row[col]);
+                    return sum + (isNaN(v) ? 0 : v);
+                }, 0) || "";
             }
+            else if (showSubtotals) {
+                const agg = aggCache.get(path) ?? {}
+                dataCols.forEach(col => {
+                    flat[col] = agg[col] !== undefined ? agg[col] : ""
+                })
+                flat["Total"] = dataCols.reduce((sum, col) => {
+                    const v = Number(flat[col]);
+                    return sum + (isNaN(v) ? 0 : v);
+                }, 0) || "";
+            }
+
 
             result.push(flat);
 
-            if (isCollapsed) break;  // ← collapsed node emitted, skip children depths for this row
+            if (isCollapsed) break;
         }
     });
+    const grandTotal: FlatRow = {
+        _path: "__grandtotal__",
+        _depth: 0,
+        _isSubtotal: true,
+        _hasChildren: false,
+        _isGrandTotal: true,
+        _label: "Grand Total",
+    };
 
-    return result;
+    rowKeys.forEach((rk, i) => {
+        grandTotal[rk] = i === 0 ? "Grand Total" : "";
+    });
+
+    // sum all depth-0 paths from aggCache
+    const topLevelPaths = Array.from(emittedPaths).filter(p => !p.includes("|")); dataCols.forEach(col => {
+        const total = topLevelPaths.reduce((sum, path) => {
+            return sum + (aggCache.get(path)?.[col] ?? 0);
+        }, 0);
+        grandTotal[col] = total || "";
+    });
+
+    grandTotal["Total"] = dataCols.reduce((sum, col) => {
+        const v = Number(grandTotal[col]);
+        return sum + (isNaN(v) ? 0 : v);
+    }, 0) || "";
+
+    return [grandTotal, ...result];
+
 }

@@ -43,7 +43,7 @@ export function buildColHeaders(allColumns: string[], rowKeys: string[], collaps
     for (let level = 0; level < numLevels; level++) {
         const levelHeaders: ColGroupHeader[] = [];
 
-        collectAtDepth(colTree, level, collapsed, (node, topLevelPath) => {
+        collectAtDepth(colTree, level, collapsed, (node) => {
             const isCollapsedGroup = collapsed.has(node.path) && node.children.length > 0;
             const visibleChildren = getVisibleChildKeys(node, collapsed);
 
@@ -88,7 +88,7 @@ function collectAtDepth(
     for (const node of nodes) {
         const thisTopLevel = currentDepth === 0 ? node.path : topLevelPath;
 
-        if (ancestorCollapsed) continue;  // parent was collapsed, skip entirely
+        if (ancestorCollapsed) continue;  
 
         const isThisCollapsed = collapsed.has(node.path) && node.children.length > 0;
 
@@ -102,7 +102,7 @@ function collectAtDepth(
                 callback,
                 thisTopLevel,
                 currentDepth + 1,
-                isThisCollapsed  // ← if THIS node is collapsed, children are skipped
+                isThisCollapsed
             );
         }
     }
