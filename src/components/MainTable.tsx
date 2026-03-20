@@ -86,11 +86,11 @@ export default function MainTable() {
     const colHeaders = useMemo(() => {
         if (!isPivotReady) return [];
         return buildColHeaders(
-            [...pivot.row, ...pivotDataCols],
+            colTree,
             pivot.row as string[],
             collapsedCols
         );
-    }, [pivotDataCols, pivot.row, isPivotReady, collapsedCols]);
+    }, [colTree, pivot.row, isPivotReady, collapsedCols]);
 
     const hierarchyRows = useMemo(() => {
         if (!flatPivotRows) return null;
@@ -175,12 +175,12 @@ export default function MainTable() {
     };
 
     const visibleRowKeys = useMemo(() => {
-        if (!hasHierarchy) return pivot.row;
-        const isCollapsedMode = Array.from(collapsedRows).length > 0;
-
-        return isCollapsedMode ? [pivot.row[0]] : pivot.row;
-
-    }, [collapsedRows, pivot.row, hasHierarchy]);
+        if (!hasHierarchy || !hierarchyRows) return pivot.row;
+        const anyExpanded = hierarchyRows.some(
+            row => row._hasChildren && !collapsedRows.has(row._path)
+        );
+        return anyExpanded ? pivot.row : [pivot.row[0]];
+    }, [hasHierarchy, hierarchyRows, collapsedRows, pivot.row]);
 
     const displayColumns = useMemo((): string[] => {
         if (!isPivotReady) return finalColumns as string[];
@@ -195,7 +195,6 @@ export default function MainTable() {
         const baseRows = hierarchyRows ?? finalRows;
         if (!baseRows.length) return baseRows;
         const collapsedBase = applyColCollapse(baseRows, collapsedGroupMap);
-        console.log("grandTotal row after collapse:", collapsedBase[0]);
 
         if (!hasHierarchy) {
             const totalRow: Record<string, any> = {
@@ -209,7 +208,7 @@ export default function MainTable() {
 
                 Object.keys(row).forEach(col => {
                     if (pivot.row.includes(col)) return;
-                    if (col.startsWith('_')) return; // skip metadata
+                    if (col.startsWith('_')) return;
                     if (col === 'Total') return;
                     const val = Number(row[col]);
                     if (!isNaN(val) && val !== 0) {
@@ -233,7 +232,7 @@ export default function MainTable() {
 
         return collapsedBase;
 
-    }, [finalRows, hierarchyRows,  collapsedGroupMap, isPivotReady, hasHierarchy, pivot.row]);
+    }, [finalRows, hierarchyRows, collapsedGroupMap, isPivotReady, hasHierarchy, pivot.row]);
 
     const displayRows = isPivotReady ? rowsWithTotals : finalRows;
 
@@ -348,7 +347,7 @@ export default function MainTable() {
                                         ↔ Collapse rows
                                     </PivotBtn>
                                 </>}
-                                {colHeaders.length > 0 && <>
+                                {pivot.column.length > 1 && canonicalDataCols.some(c => c.includes(' | ')) && <>
                                     <PivotBtn onClick={() => setCollapsedCols(new Set())}>↕ Expand cols</PivotBtn>
                                     <PivotBtn onClick={() => setCollapsedCols(new Set(buildColTree(canonicalDataCols).map(n => n.path)))}>
                                         ↔ Collapse cols
@@ -359,7 +358,21 @@ export default function MainTable() {
                     )}
 
                     <div className="flex items-center justify-between px-3 py-2 border-t bg-gray-50 text-sm">
-                        <div>Page {page} of {totalPages} ({filteredRows.length} rows)</div>
+                        <div className="flex items-center gap-2">
+                            <span>Page</span>
+                            <input
+                                type="number"
+                                min={1}
+                                max={totalPages}
+                                value={page}
+                                onChange={e => {
+                                    const val = Number(e.target.value);
+                                    if (val >= 1 && val <= totalPages) setPage(val);
+                                }}
+                                className="w-12 border rounded px-1 py-0.5 text-center text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                            />
+                            <span>of {totalPages} ({filteredRows.length} rows)</span>
+                        </div>
                         <div className="flex items-center gap-2">
                             <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-2 py-1 border rounded disabled:opacity-50">◀ Prev</button>
                             <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="px-2 py-1 border rounded disabled:opacity-50">Next ▶</button>

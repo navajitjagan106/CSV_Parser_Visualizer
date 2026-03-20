@@ -1,4 +1,4 @@
-import { buildColTree, ColNode, collectColLeaves } from './buildColTree';
+import { ColNode, collectColLeaves } from './buildColTree';
 
 export type ColGroupHeader = {
     label: string;
@@ -20,21 +20,10 @@ function getVisibleChildKeys(node: ColNode, collapsed: Set<string>): string[] {
     }
     return node.children.flatMap(child => getVisibleChildKeys(child, collapsed));
 }
-export function buildColHeaders(allColumns: string[], rowKeys: string[], collapsedCols?: Set<string>): ColHeaderLevel[] {
+export function buildColHeaders(colTree: ColNode[], rowKeys: string[], collapsedCols?: Set<string>): ColHeaderLevel[] {
     const collapsed = collapsedCols ?? new Set<string>();
+    if (!colTree.length) return [];
 
-    const dataCols = allColumns.filter(c =>
-        !rowKeys.includes(c) &&
-        !c.startsWith('__collapsed__') &&
-        c !== 'Total'
-    );
-
-    if (!dataCols.length) return [];
-
-    const hasGroups = dataCols.some(col => col.includes(" | "));
-    if (!hasGroups) return [];
-
-    const colTree = buildColTree(dataCols);
     const numLevels = getTreeDepth(colTree);
     if (numLevels === 0) return [];
 
@@ -88,7 +77,7 @@ function collectAtDepth(
     for (const node of nodes) {
         const thisTopLevel = currentDepth === 0 ? node.path : topLevelPath;
 
-        if (ancestorCollapsed) continue;  
+        if (ancestorCollapsed) continue;
 
         const isThisCollapsed = collapsed.has(node.path) && node.children.length > 0;
 

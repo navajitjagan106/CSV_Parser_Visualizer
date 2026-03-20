@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
-import { pivotData } from './pivotData';
+import { buildPivotRaw, applyAgg } from './pivotData';
 import { groupDataAll } from './groupDataAll';
 import { buildFlatPivot } from './flatPivot';
 
@@ -72,16 +72,18 @@ export function useTableData() {
         return selected.filter((c: string) => allcol.includes(c));
     }, [data, selected, allcol]);
 
-    const pivotResult = useMemo(() => {
+    const row = pivot.row, col = pivot.column, value = pivot.value;
+    const pivotRaw = useMemo(() => {
         if (!pivot.enabled) return null;
-        const { row, column, value, agg } = pivot;
-        if (!row.length || !column.length || !value.length) return null;
-        if (!row.every((r: string) => selected.includes(r))) return null;
-        if (!column.every((c: string) => selected.includes(c))) return null;
-        if (!value.every((v: string) => selected.includes(v))) return null;
+        //const { row, column, value } = pivot;
+        if (!row.length || !col.length || !value.length) return null;
+        return buildPivotRaw(filteredBaseData, row, col, value);
+    }, [filteredBaseData, pivot.enabled,row, col, value]);
 
-        return pivotData(filteredBaseData, row, column, value, agg);
-    }, [filteredBaseData, pivot, selected]);
+    const pivotResult = useMemo(() => {
+        if (!pivotRaw) return null;
+        return applyAgg(pivotRaw, pivot.agg);
+    }, [pivotRaw, pivot.agg]);
 
     const allChartData = useMemo(() => {
         if (!chart.x || !chart.y) return null;
@@ -131,18 +133,18 @@ export function useTableData() {
                 const bNum = Number(bv);
                 let cmp = 0;
                 if (!isNaN(aNum) && !isNaN(bNum)) {
-                    cmp = bNum - aNum;          
+                    cmp = bNum - aNum;
                 } else {
-                    cmp = String(av ?? "").localeCompare(String(bv ?? ""));  
+                    cmp = String(av ?? "").localeCompare(String(bv ?? ""));
                 }
-                if (cmp !== 0) return cmp;      
+                if (cmp !== 0) return cmp;
             }
             return 0;
         });
         return (collapsed: Set<string>) =>
-            buildFlatPivot(sorted, pivot.row,pivotDataCols.filter(c => !pivot.row.includes(c) && c !== 'Total'), // ← filter here
+            buildFlatPivot(sorted, pivot.row, pivotDataCols.filter(c => !pivot.row.includes(c) && c !== 'Total'), // ← filter here
 
-                collapsed,true);
+                collapsed, true);
     }, [pivotResult, pivot.row, pivotDataCols]);
 
     return { data, columns, finalColumns, finalRows, allChartData, chart, pivot, flatPivotRows, pivotDataCols };
