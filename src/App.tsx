@@ -54,7 +54,7 @@ export default function App() {
               <rect x="9" y="9" width="6" height="6" rx="1" fill="white" opacity="0.9"/>
             </svg>
           </div>
-          <span className="text-[13px] font-semibold text-indigo-500 tracking-wide">CSV Visualizer</span>
+          <span className="text-[13px] font-semibold text-indigo-500 tracking-wide">Pivot Table & Visualizer</span>
         </div>
 
         {/* Divider */}

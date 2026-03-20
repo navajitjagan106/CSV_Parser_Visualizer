@@ -129,8 +129,8 @@ export default function TableGrid({
                 return (
                     <div
                         style={style}
-                        className={`border-b border-r relative flex items-center justify-between px-2 text-[11px] font-semibold text-gray-700
-                    ${levelIndex === collapsedNodeDepth ? 'bg-gray-200 cursor-pointer hover:bg-gray-300' : 'bg-gray-100'}
+                        className={`border-b border-r relative flex items-center justify-between px-2 text-[12px] font-semibold text-gray-700
+                    ${levelIndex === collapsedNodeDepth ? 'bg-gray-100 cursor-pointer hover:bg-gray-200' : 'bg-gray-100'}
                 `}
                         onClick={levelIndex === collapsedNodeDepth ? () => onToggleColCollapse(groupKey) : undefined}
                     >
@@ -192,7 +192,7 @@ export default function TableGrid({
             <div
                 style={style}
                 className={`border-b border-r relative flex items-center text-[11px] font-semibold text-gray-700
-                ${levelIndex === 0 ? 'bg-gray-200' : 'bg-gray-100'}
+                ${levelIndex === 0 ? 'bg-gray-100' : 'bg-gray-50'}
                 `}
             >
                 {isFirstInGroup ? (
@@ -202,7 +202,7 @@ export default function TableGrid({
                 `}
                         onClick={isCollapsible ? () => onToggleColCollapse(group.groupKey) : undefined}
                     >
-                        <span className={`truncate ${isLastLevel ? 'font-normal text-gray-600' : 'text-gray-800'}`}>
+                        <span className={`truncate ${isLastLevel ? 'font-semibold text-[11px]  text-gray-700' : 'text-gray-800'}`}>
                             {group.label}
                         </span>
                         {isCollapsible && (
@@ -225,7 +225,7 @@ export default function TableGrid({
 
             if (isGrandTotal) {
                 return (
-                    <div style={style} className="border-r border-b text-center text-[12px] font-bold flex items-center justify-center select-none bg-gray-100">
+                    <div style={style} className="border-r border-b text-center text-[11px] font-semibold flex items-center justify-center select-none bg-gray-100">
                         ∑
                     </div>
                 );
@@ -264,9 +264,14 @@ export default function TableGrid({
         const isCollapsed = collapsed.has(path);
         const isNegative = !isNaN(Number(cellValue)) && Number(cellValue) < 0;
         const isEvenRow = rowIndex % 2 === 0;
-        const subtotalBg = "bg-gray-100 font-semibold";
-        const normalBg = isEvenRow ? 'bg-white' : 'bg-gray-50';
-        const rowBg = (isSubtotal || isGrandTotal) ? subtotalBg : normalBg;
+        const isParentRow = Boolean(row._hasChildren) || Boolean(row._isMerged);
+
+        const subtotalBg = "bg-gray-100";
+
+        const rowBg = isEvenRow ? 'bg-white' : 'bg-gray-50';
+        const isTotal = col === 'Total';
+        const shouldBoldTotal = isTotal && isParentRow;
+
 
         // Collapsed summary data cell — just show the summed value
         if (isCollapsedSummary) {
@@ -287,7 +292,7 @@ export default function TableGrid({
             return (
                 <div
                     style={style}
-                    className={`border-r border-b px-2 flex items-center text-[12px] truncate ${subtotalBg}
+                    className={`border-r border-b px-2 flex items-center text-[12px] truncate ${subtotalBg} font-semibold
                         ${isNegative ? 'text-red-600' : 'text-gray-800'}`}
                     title={String(cellValue ?? '')}
                 >
@@ -295,6 +300,8 @@ export default function TableGrid({
                 </div>
             );
         }
+
+
 
         if (isRowKey && hasHierarchy) {
             const rowKeyIndex = pivotRowKeys.indexOf(col);
@@ -304,14 +311,14 @@ export default function TableGrid({
                 return (
                     <div
                         style={style}
-                        className={`border-r border-b ${normalBg}`}
+                        className={`border-r border-b ${rowBg}`}
                     />
                 );
             }
             return (
                 <div
                     style={style}
-                    className={`border-r border-b px-1 flex items-center truncate text-[12px] text-gray-800 hover:bg-gray-100 ${normalBg}`}
+                    className={`border-r border-b px-1 flex items-center truncate text-[12px] text-gray-800 hover:bg-gray-100 ${rowBg}`}
                     title={String(cellValue ?? '')}
                 >
                     <span className="flex items-center gap-1">
@@ -337,8 +344,9 @@ export default function TableGrid({
             <div
                 style={style}
                 className={`border-r border-b px-2 truncate flex items-center text-[12px] hover:bg-gray-100
-                    ${normalBg}
-                    ${isNegative ? 'text-red-600 font-medium' : 'text-gray-800'}`}
+                    ${rowBg}
+                    ${isNegative ? 'text-red-600 font-medium' : 'text-gray-800'}
+                    ${shouldBoldTotal ? 'font-semibold' : ''}`}
                 title={String(cellValue ?? '')}
             >
                 {cellValue !== undefined && cellValue !== '' ? String(cellValue) : ''}

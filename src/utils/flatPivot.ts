@@ -13,6 +13,7 @@ export function buildFlatPivot(rows: Record<string, any>[], rowKeys: string[], d
     const emittedPaths = new Set<string>();
     const aggCache = new Map<string, Record<string, number>>();
 
+    
     rows.forEach(row => {
         const pathParts: string[] = [];
         rowKeys.forEach(key => {
@@ -20,6 +21,8 @@ export function buildFlatPivot(rows: Record<string, any>[], rowKeys: string[], d
             const path = pathParts.join("|");
             let agg = aggCache.get(path);
             if (!agg) { agg = {}; aggCache.set(path, agg); }
+            
+
             dataCols.forEach(col => {
                 const num = Number(row[col]);
                 if (!isNaN(num)) agg![col] = (agg![col] ?? 0) + num;
@@ -66,31 +69,25 @@ export function buildFlatPivot(rows: Record<string, any>[], rowKeys: string[], d
             }
 
             // Fill data columns
-            if (isCollapsed) {
-                const agg = aggCache.get(path) ?? {};
+            if (isLeaf) {
+                let rowTotal = 0;
                 dataCols.forEach(col => {
-                    flat[col] = agg[col] !== undefined ? agg[col] : "";
+                    const v = row[col];
+                    flat[col] = v;
+                    const n = Number(v);
+                    if (!isNaN(n)) rowTotal += n;
                 });
-                flat["Total"] = dataCols.reduce((sum, col) => {
-                    const v = Number(flat[col]);
-                    return sum + (isNaN(v) ? 0 : v);
-                }, 0) || "";
-            } else if (isLeaf) {
-                dataCols.forEach(col => { flat[col] = row[col]; });
-                flat["Total"] = dataCols.reduce((sum, col) => {
-                    const v = Number(row[col]);
-                    return sum + (isNaN(v) ? 0 : v);
-                }, 0) || "";
-            }
-            else if (showSubtotals) {
-                const agg = aggCache.get(path) ?? {}
+                flat["Total"] = rowTotal || "";
+            } else {
+                const agg = aggCache.get(path) ?? {};
+                let rowTotal = 0;
                 dataCols.forEach(col => {
-                    flat[col] = agg[col] !== undefined ? agg[col] : ""
-                })
-                flat["Total"] = dataCols.reduce((sum, col) => {
-                    const v = Number(flat[col]);
-                    return sum + (isNaN(v) ? 0 : v);
-                }, 0) || "";
+                    const v = agg[col] !== undefined ? agg[col] : "";
+                    flat[col] = v;
+                    const n = Number(v);
+                    if (!isNaN(n)) rowTotal += n;
+                });
+                flat["Total"] = rowTotal || "";
             }
 
 
@@ -113,7 +110,8 @@ export function buildFlatPivot(rows: Record<string, any>[], rowKeys: string[], d
     });
 
     // sum all depth-0 paths from aggCache
-    const topLevelPaths = Array.from(emittedPaths).filter(p => !p.includes("|")); dataCols.forEach(col => {
+    const topLevelPaths = Array.from(emittedPaths).filter(p => !p.includes("|"));
+    dataCols.forEach(col => {
         const total = topLevelPaths.reduce((sum, path) => {
             return sum + (aggCache.get(path)?.[col] ?? 0);
         }, 0);
