@@ -36,12 +36,7 @@ export type PivotRawMap = {
     valueKey: string[];
 };
 
-export function buildPivotRaw(
-    rows: PivotRow[],
-    rowKey: string[],
-    colKey: string[],
-    valueKey: string[],
-): PivotRawMap {
+export function buildPivotRaw(rows: PivotRow[], rowKey: string[], colKey: string[], valueKey: string[],): PivotRawMap {
     const cells = new Map<string, { nums: number[]; texts: string[] }>();
     const allRowVals: string[] = [];
     const seenRows = new Set<string>();
